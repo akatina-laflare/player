@@ -634,16 +634,22 @@ function warmLinks(ids){for(const id of ids){const t=S.byId.get(id);if(t&&t.src=
       try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks()}catch(e){break}}}
     finally{warming=false}})()}
 const preAudio=new Audio();preAudio.preload='auto';preAudio.muted=true;
-async function preloadNext(){const id=S.up[0]||S.ctx[S.pos+1];const t=id&&S.byId.get(id);if(!t)return;
-  if(t.src==='gd')return;
-  if(t.src==='dbx'&&!t.offline){warmLinks([id]);setTimeout(()=>{const c=tempLinks[id];if(c&&preAudio.src!==c.url){preAudio.src=c.url;try{preAudio.load()}catch(e){}}},1500)}}
+/* scarica in sottofondo il brano successivo (un solo download), così parte subito */
+let prefetching=null;
+function trimUrls(){const keep=new Set([S.curId,prefetching,S.up[0]||S.ctx[S.pos+1]]);const ks=Object.keys(urls).filter(k=>!keep.has(k));
+  while(ks.length>1){const k=ks.shift();URL.revokeObjectURL(urls[k]);delete urls[k];delete shareBlobs[k]}}
+async function preloadNext(){const id=S.up[0]||S.ctx[S.pos+1];const t=id&&S.byId.get(id);if(!t||!isCloud(t)||t.offline||urls[id]||prefetching===id)return;
+  if(navigator.connection&&navigator.connection.saveData)return;
+  prefetching=id;
+  try{const b=await cloudBlob(t);if(S.byId.has(id)&&!urls[id]){urls[id]=URL.createObjectURL(typed(b,t.file));shareBlobs[id]=b}}catch(e){}
+  finally{if(prefetching===id)prefetching=null;trimUrls()}}
 async function srcFor(t){if(t.src==='gd'&&!urls[t.id]){const off=await idb.get('blobs',t.id);if(!off)return gdUrl(t)}
   if(t.src==='dbx'&&!urls[t.id]){const off=await idb.get('blobs',t.id);
     if(!off){const c=tempLinks[t.id];if(c&&c.exp>Date.now())return c.url;
       try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[t.id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks();return r.link}
       catch(e){toast(navigator.onLine===false?'Serve internet per questo brano. Dal menu ··· puoi scaricarlo sul telefono':'Dropbox non risponde: riprova tra poco',4200);return'__fail'}}}
   if(urls[t.id]){if(!shareBlobs[t.id])blobFor(t).then(b=>{if(b)shareBlobs[t.id]=b});return urls[t.id]}const b=await blobFor(t);if(!b)return null;for(const k in shareBlobs)if(k!==t.id)delete shareBlobs[k];shareBlobs[t.id]=b;
-  const ks=Object.keys(urls);if(ks.length>4)for(const k of ks.slice(0,ks.length-4))if(k!==S.curId){URL.revokeObjectURL(urls[k]);delete urls[k]}
+  trimUrls();
   urls[t.id]=URL.createObjectURL(typed(b,t.file));return urls[t.id]}
 function shuffled(ids,first){const a=ids.filter(i=>i!==first);for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}if(first)a.unshift(first);return a}
 function startContext(ids,startId,label){S.ctxBase=[...ids];S.ctx=S.shuffle?shuffled(ids,startId):[...ids];S.pos=Math.max(0,S.ctx.indexOf(startId));S.ctxLabel=label||'';load(S.ctx[S.pos],true)}
@@ -677,7 +683,7 @@ audio.addEventListener('error',()=>{const t=S.byId.get(S.curId);if(!t||!audio.sr
   playError(t)});
 function toggle(){if(!S.curId){const v=S.visible.length?S.visible:lib().map(t=>t.id);if(v.length)startContext(v,S.shuffle?v[Math.floor(Math.random()*v.length)]:v[0],$('h1').textContent);return}
   if(audio.paused){if(!audio.src){load(S.curId,true,lastPos);return}audio.play().catch(()=>{})}else audio.pause()}
-function next(auto){
+function next(auto){setTimeout(preloadNext,3000);
   if(S.up.length){const id=S.up.shift();load(id,true);return}
   if(!S.ctx.length)return;let p=S.pos+1;
   if(p>=S.ctx.length){if(S.repeat==='all'){if(S.shuffle)S.ctx=shuffled(S.ctxBase||S.ctx);p=0}else{if(auto){audio.pause();audio.currentTime=0}else{S.pos=S.ctx.length-1;audio.currentTime=0;audio.pause()}return}}
@@ -761,7 +767,7 @@ $('npTools').onclick=()=>sheetOptions('Strumenti',[
   {icon:ICON.queueAdd,label:'Velocità',hint:String(S.speed).replace('.',',')+'×',fn:()=>setTimeout(()=>$('speedBtn').click(),320)},
   {icon:ICON.undo,label:S.A==null?'Loop A-B: fissa il punto A':S.B==null?'Loop A-B: fissa il punto B':'Togli il loop A-B',hint:S.A!=null?$('abL').textContent:'',fn:()=>$('abBtn').click()}],
   'Il loop A-B ripete un pezzo del brano: tocca una volta per l\'inizio e una per la fine, mentre il brano suona.');
-$('shuf').onclick=()=>{S.shuffle=!S.shuffle;if(S.ctx.length){const cur=S.curId;S.ctx=S.shuffle?shuffled(S.ctxBase||S.ctx,cur):[...(S.ctxBase||S.ctx)];S.pos=Math.max(0,S.ctx.indexOf(cur))}syncModes()};
+$('shuf').onclick=()=>{setTimeout(preloadNext,1500);S.shuffle=!S.shuffle;if(S.ctx.length){const cur=S.curId;S.ctx=S.shuffle?shuffled(S.ctxBase||S.ctx,cur):[...(S.ctxBase||S.ctx)];S.pos=Math.max(0,S.ctx.indexOf(cur))}syncModes()};
 $('rep').onclick=()=>{S.repeat={off:'all',all:'one',one:'off'}[S.repeat];syncModes()};
 $('speedBtn').onclick=()=>sheetOptions('Velocità',[.5,.75,.9,1,1.1,1.25,1.5,2].map(v=>({label:String(v).replace('.',',')+'×',sel:v===S.speed,hint:v===1?'normale':'',fn:()=>{S.speed=v;audio.playbackRate=v;syncModes()}})),'Il tono resta lo stesso: utile per riascoltare un passaggio con calma.');
 function updTimer(){const L=$('timerL');if(S.sleepTrack){L.textContent='Fine';$('timerBtn').classList.add('on');return}
