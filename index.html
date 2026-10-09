@@ -155,13 +155,17 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .np-title .t{font-size:21px;font-weight:700}
 .np-title .s{color:var(--np-muted);font-size:16px}
 .scrub{position:relative;padding-block:14px;margin-block:-14px;touch-action:none;cursor:pointer;-webkit-user-select:none;user-select:none}
-.wave{width:100%;height:56px;display:block;touch-action:none;pointer-events:none;transition:transform .2s ease}
-.scrub.active .wave{transform:scaleY(1.18)}
+.pbar{position:relative;height:7px;border-radius:4px;background:var(--np-track);overflow:hidden;pointer-events:none;transition:height .18s ease,margin .18s ease}
+.scrub.active .pbar{height:13px;margin-block:-3px}
+.pfill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--np-fg);opacity:.85}
+.scrub.active .pfill{opacity:1}
+.pab{position:absolute;top:0;bottom:0;background:var(--accent);opacity:.35}
 .bubble{position:absolute;bottom:calc(100% - 4px);transform:translateX(-50%);background:var(--np-fg);color:var(--np-bg);border-radius:10px;padding:6px 10px;display:flex;flex-direction:column;align-items:center;gap:1px;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.2);white-space:nowrap}
 .bubble b{font-family:var(--mono);font-size:16px;font-variant-numeric:tabular-nums}
 .bubble span{font-size:11px;opacity:.7}
 .bubble span:empty{display:none}
-.times{display:flex;justify-content:space-between;font-size:12px;color:var(--np-muted);font-variant-numeric:tabular-nums;font-family:var(--mono);margin-top:4px}
+.times{display:flex;justify-content:space-between;font-size:12px;font-weight:500;color:var(--np-muted);font-variant-numeric:tabular-nums;margin-top:8px}
+.scrub.active+.times{color:var(--np-fg)}
 .ctrl{display:flex;justify-content:space-around;align-items:center}
 .ctrl .ib{width:64px;height:64px}
 .ctrl .play{width:82px;height:82px}
@@ -172,9 +176,13 @@ input[type=range]::-moz-range-track{height:5px;border-radius:3px;background:var(
 input[type=range]::-moz-range-progress{height:5px;border-radius:3px;background:var(--np-muted)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--np-fg);margin-top:-4.5px}
 input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:var(--np-fg)}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--np-muted);padding:8px 11px;border-radius:10px;background:var(--np-chip);font-variant-numeric:tabular-nums}
-.chip.on{color:#fff;background:var(--accent)}
+.chips{display:flex;justify-content:space-around;align-items:center}
+.chip{position:relative;display:flex;align-items:center;justify-content:center;gap:4px;min-width:48px;height:44px;padding:0 10px;border-radius:22px;color:var(--np-muted);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.chip svg{width:22px;height:22px}
+.chip.on{color:var(--accent);background:var(--np-chip)}
+#repL,#speedBtn,#abBtn{display:none}
+#rep.one::after{content:"1";position:absolute;top:6px;right:8px;font-size:9px;font-weight:800;color:var(--accent)}
+#timerL:not(:empty){margin-left:2px}
 #npFav[aria-pressed="true"]{color:var(--accent)}
 .card-np{background:var(--np-chip);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .kv{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--np-muted);font-family:var(--mono)}
@@ -304,8 +312,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
       <button class="ib" id="npMore" aria-label="Altre azioni"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
     </div>
     <div>
-      <div class="scrub" id="scrubZone"><canvas class="wave" id="wave" role="slider" aria-label="Posizione nel brano" tabindex="0"></canvas><div class="bubble" id="bubble" hidden><b id="bubT">0:00</b><span id="bubS"></span></div></div>
-      <div class="times"><span id="cur">0:00</span><span id="rem">-0:00</span></div>
+      <div class="scrub" id="scrubZone"><div class="pbar" id="wave" role="slider" aria-label="Posizione nel brano" tabindex="0"><div class="pab" id="pab" hidden></div><div class="pfill" id="pfill"></div></div><div class="bubble" id="bubble" hidden><b id="bubT">0:00</b><span id="bubS"></span></div></div>
+      <div class="times"><span id="cur">0:00</span><span id="scrubHint"></span><span id="rem">-0:00</span></div>
     </div>
     <div class="ctrl">
       <button class="ib" id="prev" aria-label="Brano precedente"><svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M21 6v12l-8.5-6zM12 6v12l-8.5-6z"/></svg></button>
@@ -318,11 +326,12 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor" stroke="none"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>
     </div>
     <div class="chips">
-      <button class="chip" id="shuf"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Casuale</button>
-      <button class="chip" id="rep"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg><span id="repL">Ripeti</span></button>
+      <button class="chip" id="shuf" aria-label="Casuale"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
+      <button class="chip" id="rep" aria-label="Ripeti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg><span id="repL">Ripeti</span></button>
       <button class="chip" id="speedBtn"><span id="speedL">Velocità 1×</span></button>
-      <button class="chip" id="timerBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span id="timerL">Timer</span></button>
+      <button class="chip" id="timerBtn" aria-label="Timer di spegnimento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span id="timerL"></span></button>
       <button class="chip" id="abBtn"><span id="abL">Loop A-B</span></button>
+      <button class="chip" id="npTools" aria-label="Velocità e loop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span id="toolsL"></span></button>
     </div>
     <div class="card-np" id="techCard">
       <span class="np-label" style="text-align:left">Dettagli file</span>
@@ -645,7 +654,7 @@ async function load(id,autoplay,at=0){const t=S.byId.get(id);if(!t)return;const 
   setMedia(t);
   if(!t.peaks&&!t.demo){const b=await blobFor(t);let p=null;
     if(b){const w=/^wav/.test(extOf(t.file))?await parseWav(b):null;p=w?await wavPeaks(b,w):await decodePeaks(b)}
-    else if(isCloud(t)&&/^wav/.test(extOf(t.file))){const rb=remoteBlob(t);const w=await parseWav(rb);if(w){if(!t.duration)t.duration=w.duration;p=await wavPeaks(rb,w)}}
+    else if(isCloud(t)&&/^wav/.test(extOf(t.file))&&!t.duration){const rb=remoteBlob(t);const w=await parseWav(rb);if(w){t.duration=w.duration;saveTrack(t)}}
     if(p&&S.byId.has(t.id)){t.peaks=p;saveTrack(t);if(S.curId===t.id)drawWave()}}}
 function playError(t){const i=t.info||{};toast(i.float&&i.bits===64?'Questo WAV è a 64-bit float: riesportalo da Logic a 24-bit':`Non riesco a riprodurre "${t.name}". Prova a riesportarlo da Logic in WAV 24-bit o AAC`,4500)}
 audio.addEventListener('error',()=>{const t=S.byId.get(S.curId);if(t&&audio.src)playError(t)});
@@ -675,16 +684,9 @@ function progress(){const t=S.byId.get(S.curId);const d=(isFinite(audio.duration
   $('wave').setAttribute('aria-valuetext',`${fmt(c)} di ${fmt(d)}`);
   if($('np').classList.contains('open'))drawWave(d?c/d:0);
   try{if(d&&navigator.mediaSession.setPositionState&&scrub==null)navigator.mediaSession.setPositionState({duration:d,position:Math.min(audio.currentTime||0,d),playbackRate:audio.playbackRate||1})}catch(e){}}
-function drawWave(frac){const cv=$('wave'),t=S.byId.get(S.curId);if(!cv||!t)return;const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(!w)return;
-  if(cv.width!==Math.round(w*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);
-  if(frac==null){const d=audio.duration||t.duration||0;frac=d?(audio.currentTime||0)/d:0}
-  const cs=getComputedStyle(document.documentElement),on=cs.getPropertyValue('--accent').trim()||'#e2465f',off=cs.getPropertyValue('--np-track').trim()||'rgba(128,128,128,.3)';
-  const pk=t.peaks||Array.from({length:160},(_,i)=>.1+.06*Math.sin(i*.7));const n=pk.length,gap=w/n,bw=Math.max(1,gap*.62),mid=h/2;
-  const d=audio.duration||t.duration||0;
-  if(S.A!=null&&d){const a=S.A/d*w,b=(S.B!=null?S.B/d:frac)*w;x.globalAlpha=.12;x.fillStyle=on;x.fillRect(a,0,Math.max(2,b-a),h);x.globalAlpha=1}
-  for(let i=0;i<n;i++){const bh=Math.max(2,pk[i]*(h-4));x.fillStyle=(i+.5)/n<=frac?on:off;const px=i*gap+(gap-bw)/2;
-    if(x.roundRect){x.beginPath();x.roundRect(px,mid-bh/2,bw,bh,bw/2);x.fill()}else x.fillRect(px,mid-bh/2,bw,bh)}
-  x.fillStyle=on;x.fillRect(Math.min(w-2,Math.max(0,frac*w-1)),0,2,h)}
+function drawWave(frac){const t=S.byId.get(S.curId);if(!t)return;const d=audio.duration||t.duration||0;
+  if(frac==null)frac=d?(audio.currentTime||0)/d:0;$('pfill').style.width=(Math.min(1,Math.max(0,frac))*100)+'%';
+  const ab=$('pab');if(S.A!=null&&d){const a=S.A/d,b=(S.B!=null?S.B/d:frac);ab.hidden=false;ab.style.left=a*100+'%';ab.style.width=Math.max(.5,(b-a)*100)+'%'}else ab.hidden=true}
 function updateNow(){const t=S.byId.get(S.curId);if(!t)return;
   paintArt($('miniArt'),t);paintArt($('bigArt'),t);const c=coverOf(t);$('npBg').style.background=c?`url("${c}") center/cover`:gradient(t.name);
   $('miniT').textContent=$('npT').textContent=t.name;$('miniS').textContent=$('npS').textContent=lastSeg(t.folder);
@@ -715,14 +717,14 @@ const wv=$('wave'),zone=$('scrubZone');
 let sd=null;
 function wfrac(e){const r=wv.getBoundingClientRect();return Math.min(1,Math.max(0,(e.clientX-r.left)/r.width))}
 function showBubble(){const b=$('bubble'),r=wv.getBoundingClientRect(),d=audio.duration||(S.byId.get(S.curId)||{}).duration||0;
-  b.hidden=false;$('bubT').textContent=fmt((scrub||0)*d);$('bubS').textContent=sd&&sd.speed<1?(sd.speed===.5?'Scorrimento lento':'Scorrimento fine'):'';
+  b.hidden=true;$('scrubHint').textContent=sd&&sd.speed<1?(sd.speed===.5?'Scorrimento lento':'Scorrimento fine'):'';$('bubT').textContent=fmt((scrub||0)*d);$('bubS').textContent=sd&&sd.speed<1?(sd.speed===.5?'Scorrimento lento':'Scorrimento fine'):'';
   const x=Math.min(r.width-40,Math.max(40,(scrub||0)*r.width));b.style.left=x+'px'}
 zone.addEventListener('pointerdown',e=>{if(!S.curId)return;e.preventDefault();try{zone.setPointerCapture(e.pointerId)}catch(x){}
   scrub=wfrac(e);sd={x:e.clientX,y:e.clientY,f:scrub,speed:1,w:wv.getBoundingClientRect().width};zone.classList.add('active');progress();showBubble()});
 zone.addEventListener('pointermove',e=>{if(scrub==null||!sd)return;const dy=Math.abs(e.clientY-sd.y);const sp=dy>140?.25:dy>70?.5:1;
   if(sp!==sd.speed){sd.f=scrub;sd.x=e.clientX;sd.speed=sp}
   scrub=Math.min(1,Math.max(0,sd.f+(e.clientX-sd.x)/sd.w*sp));progress();showBubble()});
-const endScrub=()=>{if(scrub==null)return;const d=audio.duration||0;if(d){try{audio.currentTime=Math.min(d-.05,scrub*d)}catch(x){}}scrub=null;sd=null;zone.classList.remove('active');$('bubble').hidden=true;progress()};
+const endScrub=()=>{if(scrub==null)return;const d=audio.duration||0;if(d){try{audio.currentTime=Math.min(d-.05,scrub*d)}catch(x){}}scrub=null;sd=null;zone.classList.remove('active');$('bubble').hidden=true;$('scrubHint').textContent='';progress()};
 zone.addEventListener('pointerup',endScrub);zone.addEventListener('pointercancel',endScrub);zone.addEventListener('lostpointercapture',endScrub);
 wv.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){audio.currentTime=Math.min(audio.duration||0,audio.currentTime+5);e.preventDefault()}if(e.key==='ArrowLeft'){audio.currentTime=Math.max(0,audio.currentTime-5);e.preventDefault()}});
 window.addEventListener('resize',()=>drawWave());
@@ -735,19 +737,23 @@ window.addEventListener('resize',()=>drawWave());
 
 /* ================= modalità, timer, velocità, loop ================= */
 function saveModes(){ls.set('sp-modes',JSON.stringify({shuffle:S.shuffle,repeat:S.repeat,speed:S.speed}))}
-function syncModes(){$('shuf').classList.toggle('on',S.shuffle);$('rep').classList.toggle('on',S.repeat!=='off');
+function syncModes(){$('shuf').classList.toggle('on',S.shuffle);$('rep').classList.toggle('on',S.repeat!=='off');$('rep').classList.toggle('one',S.repeat==='one');$('rep').setAttribute('aria-label',S.repeat==='one'?'Ripeti brano':S.repeat==='all'?'Ripeti tutto':'Ripeti');$('npTools').classList.toggle('on',S.speed!==1||S.A!=null);
   $('repL').textContent=S.repeat==='one'?'Ripeti brano':S.repeat==='all'?'Ripeti tutto':'Ripeti';
   $('speedL').textContent='Velocità '+String(S.speed).replace('.',',')+'×';$('speedBtn').classList.toggle('on',S.speed!==1);saveModes()}
+$('npTools').onclick=()=>sheetOptions('Strumenti',[
+  {icon:ICON.queueAdd,label:'Velocità',hint:String(S.speed).replace('.',',')+'×',fn:()=>setTimeout(()=>$('speedBtn').click(),320)},
+  {icon:ICON.undo,label:S.A==null?'Loop A-B: fissa il punto A':S.B==null?'Loop A-B: fissa il punto B':'Togli il loop A-B',hint:S.A!=null?$('abL').textContent:'',fn:()=>$('abBtn').click()}],
+  'Il loop A-B ripete un pezzo del brano: tocca una volta per l\'inizio e una per la fine, mentre il brano suona.');
 $('shuf').onclick=()=>{S.shuffle=!S.shuffle;if(S.ctx.length){const cur=S.curId;S.ctx=S.shuffle?shuffled(S.ctxBase||S.ctx,cur):[...(S.ctxBase||S.ctx)];S.pos=Math.max(0,S.ctx.indexOf(cur))}syncModes()};
 $('rep').onclick=()=>{S.repeat={off:'all',all:'one',one:'off'}[S.repeat];syncModes()};
 $('speedBtn').onclick=()=>sheetOptions('Velocità',[.5,.75,.9,1,1.1,1.25,1.5,2].map(v=>({label:String(v).replace('.',',')+'×',sel:v===S.speed,hint:v===1?'normale':'',fn:()=>{S.speed=v;audio.playbackRate=v;syncModes()}})),'Il tono resta lo stesso: utile per riascoltare un passaggio con calma.');
-function updTimer(){const L=$('timerL');if(S.sleepTrack){L.textContent='Fine brano';$('timerBtn').classList.add('on');return}
-  if(S.sleepEnd){const r=Math.max(0,S.sleepEnd-Date.now())/1000;L.textContent=fmt(r);$('timerBtn').classList.add('on')}else{L.textContent='Timer';$('timerBtn').classList.remove('on')}}
+function updTimer(){const L=$('timerL');if(S.sleepTrack){L.textContent='Fine';$('timerBtn').classList.add('on');return}
+  if(S.sleepEnd){const r=Math.max(0,S.sleepEnd-Date.now())/1000;L.textContent=fmt(r);$('timerBtn').classList.add('on')}else{L.textContent='';$('timerBtn').classList.remove('on')}}
 $('timerBtn').onclick=()=>sheetOptions('Timer di spegnimento',[
   ...[15,30,45,60,90].map(m=>({label:m+' minuti',fn:()=>{S.sleepEnd=Date.now()+m*60000;S.sleepTrack=false;updTimer();toast(`La musica si ferma tra ${m} minuti`)}})),
   {label:'Alla fine del brano',sel:S.sleepTrack,fn:()=>{S.sleepTrack=true;S.sleepEnd=0;updTimer()}},
   ...(S.sleepEnd||S.sleepTrack?[{label:'Disattiva timer',danger:true,fn:()=>{S.sleepEnd=0;S.sleepTrack=false;updTimer()}}]:[])]);
-function updateAB(){const L=$('abL'),b=$('abBtn');if(S.A==null){L.textContent='Loop A-B';b.classList.remove('on')}else if(S.B==null){L.textContent='A '+fmt(S.A)+' · fissa B';b.classList.add('on')}else{L.textContent=`Loop ${fmt(S.A)}–${fmt(S.B)}`;b.classList.add('on')}drawWave()}
+function updateAB(){if($('npTools'))$('npTools').classList.toggle('on',S.speed!==1||S.A!=null);const L=$('abL'),b=$('abBtn');if(S.A==null){L.textContent='Loop A-B';b.classList.remove('on')}else if(S.B==null){L.textContent='A '+fmt(S.A)+' · fissa B';b.classList.add('on')}else{L.textContent=`Loop ${fmt(S.A)}–${fmt(S.B)}`;b.classList.add('on')}drawWave()}
 $('abBtn').onclick=()=>{if(!S.curId)return;const c=audio.currentTime||0;
   if(S.A==null){S.A=c;toast('Punto A fissato. Tocca di nuovo per fissare B')}else if(S.B==null){if(c<=S.A+.5){toast('B deve essere dopo A');return}S.B=c;audio.currentTime=S.A;toast('Loop attivo. Tocca ancora per toglierlo')}else{S.A=S.B=null;toast('Loop tolto')}updateAB()};
 setInterval(()=>{if(S.sleepEnd&&Date.now()>=S.sleepEnd){S.sleepEnd=0;audio.pause();toast('Timer scaduto: riproduzione in pausa')}if(S.sleepEnd)updTimer();if(!audio.paused)savePos()},1000);
@@ -852,6 +858,7 @@ async function settingsSheet(){
     ${seg('coverStyle',[['tinta','Tinta unita'],['grafite','Grafite']])}
     <p class="note">Se nella cartella c'è un'immagine (per esempio cover.jpg) diventa la copertina di tutti i brani della cartella. Puoi sempre cambiarla dal menu ··· di un brano o di una cartella.</p>
     <div class="sec">Libreria</div>
+    ${(()=>{const n=findDupes().reduce((a,d)=>a+d.drop.length,0);return n?`<div class="opts" style="margin-bottom:8px"><button class="opt danger" id="dedupe">${ICON.trash}<span class="lbl">Rimuovi i doppioni</span><span class="hint">${n}</span></button></div>`:''})()}
     <div class="opts"><div class="opt"><span class="lbl">Mostra formato e qualità</span><button class="toggle" role="switch" id="tgTech" aria-checked="${SET.tech}" aria-label="Mostra formato e qualità"></button></div></div>
     <div class="sec">Spazio sul telefono</div>
     <div class="opts"><div class="opt"><span class="lbl">${mine.length} ${mine.length===1?'brano':'brani'} · ${fmtSize(mine.reduce((s,t)=>s+(t.size||0),0))}${est?`<span class="s" style="display:block;margin-top:2px">${esc(est)}</span>`:''}</span></div>
@@ -865,6 +872,7 @@ async function settingsSheet(){
     el.querySelector('#tgTech').onclick=e=>{SET.tech=!SET.tech;saveSet();applySettings();e.currentTarget.setAttribute('aria-checked',String(SET.tech));render()};
     const p=el.querySelector('#persist');if(p)p.onclick=async()=>{let ok=false;try{ok=await navigator.storage.persist()}catch(e){}toast(ok?'Brani protetti':'Il browser non lo permette qui: aggiungi il player alla schermata Home');if(ok)settingsSheet()};
     dbxSettingsMount(el);gdSettingsMount(el);
+    const dd=el.querySelector('#dedupe');if(dd)dd.onclick=()=>{closeSheet();dedupe(false)};
     const w=el.querySelector('#wipe');if(w)w.onclick=()=>{if(!w.dataset.armed){w.dataset.armed='1';w.querySelector('.lbl').textContent=`Tocca di nuovo per rimuovere ${mine.length} brani`;return}closeSheet();const loc=mine.filter(t=>!isCloud(t));removeTracks(loc.map(t=>t.id),true);mine.filter(t=>isCloud(t)).forEach(t=>dbxUnkeep(t,true));toast('Brani rimossi dal telefono')}})}
 
 const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
@@ -881,6 +889,22 @@ function folderMenu(f){const ts=lib().filter(t=>t.folder===f);sheetOptions(lastS
   ...(ts.some(t=>!t.demo)?[{icon:ICON.trash,label:`Elimina i ${ts.length} brani dal player`,danger:true,confirm:'Tocca di nuovo per eliminarli',fn:async()=>{const h=new Set(hiddenIds());ts.filter(t=>isCloud(t)).forEach(t=>h.add(t.id));ls.set('sp-hidden',JSON.stringify([...h]));await removeTracks(ts.map(t=>t.id),true);toast('Cartella eliminata dal player')}}]:[])])}
 function openFolder(f){S.tab='folder';S.folder=f;S.query='';$('q').value='';render();window.scrollTo(0,0)}
 
+
+/* ================= doppioni ================= */
+const normName=n=>String(n||'').toLowerCase().replace(/\.[a-z0-9]+$/,'').replace(/[_\s]+/g,' ').trim();
+const srcRank=t=>t.src==='gd'?3:t.src==='dbx'?2:1;
+function findDupes(){const groups=new Map();
+  for(const t of S.tracks){if(t.demo)continue;const k=normName(t.file||t.name)+'|'+(t.size||0);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(t)}
+  const out=[];for(const g of groups.values())if(g.length>1){g.sort((a,b)=>srcRank(b)-srcRank(a)||(b.offline?1:0)-(a.offline?1:0));out.push({keep:g[0],drop:g.slice(1)})}return out}
+async function dedupe(quiet){const ds=findDupes();if(!ds.length){if(!quiet)toast('Nessun doppione');return 0}
+  const h=new Set(hiddenIds());let n=0;const ids=[];
+  for(const{keep,drop}of ds){for(const d of drop){if(d.fav)keep.fav=true;keep.plays=(keep.plays||0)+(d.plays||0);if(!keep.cover&&d.cover)keep.cover=d.cover;
+      const nt=ls.get('sp-notes:'+d.id);if(nt&&!ls.get('sp-notes:'+keep.id))ls.set('sp-notes:'+keep.id,nt);
+      if(d.id===S.curId){S.curId=null;audio.pause();$('mini').hidden=true}
+      if(isCloud(d))h.add(d.id);ids.push(d.id);n++}
+    await saveTrack(keep)}
+  ls.set('sp-hidden',JSON.stringify([...h]));await removeTracks(ids,true);
+  if(!quiet)toast(n===1?'1 doppione rimosso':`${n} doppioni rimossi`);return n}
 
 /* ================= servizi cloud (comune) ================= */
 const isCloud=t=>!!t&&(t.src==='dbx'||t.src==='gd');
@@ -956,7 +980,7 @@ async function gdSync(manual){if(!GD_KEY||!SET.gdRoot||gdSyncing)return;gdSyncin
     ls.set('sp-gd-last',String(Date.now()));render();if(S.curId)updateNow();
     const parts=[];if(added)parts.push(added===1?'1 brano nuovo':`${added} brani nuovi`);if(updated)parts.push(updated===1?'1 aggiornato':`${updated} aggiornati`);if(gone.length)parts.push(`${gone.length} tolti`);
     if(parts.length)toast('Drive: '+parts.join(' · '),3200);else if(manual)toast(aud.length?'Drive: tutto aggiornato':`Nella cartella "${SET.gdRoot.name}" non ci sono ancora brani`,3200);
-    dbxDetails(fresh);if(SET.dbxKeep)dbxKeepAll()}
+    dbxDetails(fresh);if(SET.dbxKeep)dbxKeepAll();if(SET.autoDedupe!==false)setTimeout(()=>dedupe(true).then(n=>{if(n)toast(n===1?'1 doppione nascosto':`${n} doppioni nascosti`)}),1200)}
   catch(e){if(e.status===404)toast(`Non trovo più la cartella "${SET.gdRoot.name}": controlla che sia ancora condivisa con il link`,4500);else if(manual)toast('Google Drive non risponde: riprovo quando riapri il player',3500)}
   finally{gdSyncing=false;setTimeout(()=>{P.hidden=true},300)}}
 
@@ -1062,7 +1086,7 @@ async function dbxSync(manual){if(!dbx.refresh||!SET.dbxRoot||dbxSyncing)return;
     ls.set('sp-dbx-last',String(Date.now()));render();if(S.curId)updateNow();
     const parts=[];if(added)parts.push(added===1?'1 brano nuovo':`${added} brani nuovi`);if(updated)parts.push(updated===1?'1 aggiornato':`${updated} aggiornati`);if(gone.length)parts.push(`${gone.length} tolti`);
     if(parts.length)toast('Dropbox: '+parts.join(' · '),3200);else if(manual)toast(aud.length?'Dropbox: tutto aggiornato':`Nella cartella "${SET.dbxRoot.name}" non ci sono ancora brani`,3200);
-    dbxDetails(fresh);if(SET.dbxKeep)dbxKeepAll()}
+    dbxDetails(fresh);if(SET.dbxKeep)dbxKeepAll();if(SET.autoDedupe!==false)setTimeout(()=>dedupe(true).then(n=>{if(n)toast(n===1?'1 doppione nascosto':`${n} doppioni nascosti`)}),1200)}
   catch(e){if(e&&e.status===409){toast(`Non trovo più la cartella "${SET.dbxRoot.name}" su Dropbox: sceglila di nuovo dalle impostazioni`,4500)}else if(manual||e.message!=='nolink')toast('Dropbox non risponde: riprovo quando riapri il player',3500)}
   finally{dbxSyncing=false;setTimeout(()=>{P.hidden=true},300)}}
 async function dbxDetails(list){const q=list.filter(t=>/^wav/.test(extOf(t.file))&&!t.duration);let i=0;
