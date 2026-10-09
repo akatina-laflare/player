@@ -151,7 +151,8 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .np-bg::after{content:"";position:absolute;inset:0;background:rgba(10,8,12,.5)}
 .np-in{position:relative;height:100%;overflow-y:auto;overscroll-behavior:contain;max-width:480px;margin:0 auto;padding:calc(8px + env(safe-area-inset-top,0px)) 22px calc(28px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:18px}
 .np-in>*{flex:none}
-.grab{width:40px;height:5px;border-radius:3px;background:var(--np-track);margin:4px auto 0;flex:none}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--np-track);margin:4px auto 0;flex:none;position:relative}
+#npIn>.grab::after{content:"";position:absolute;inset:-14px -40px}
 .np-head{display:flex;justify-content:space-between;align-items:center}
 .np .ib{color:var(--np-fg)}
 .np .ib:active{background:var(--np-chip)}
@@ -812,11 +813,19 @@ zone.addEventListener('pointerup',endScrub);zone.addEventListener('pointercancel
 wv.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){audio.currentTime=Math.min(audio.duration||0,audio.currentTime+5);e.preventDefault()}if(e.key==='ArrowLeft'){audio.currentTime=Math.max(0,audio.currentTime-5);e.preventDefault()}});
 window.addEventListener('resize',()=>drawWave());
 
-/* scorri in basso per chiudere */
-(()=>{const np=$('np'),inn=$('npIn');let y0=null,dy=0;
-  inn.addEventListener('touchstart',e=>{if(inn.scrollTop>0||e.target.closest('.scrub')||e.target.closest('#bigArt')||e.target.tagName==='TEXTAREA'){y0=null;return}y0=e.touches[0].clientY;dy=0},{passive:true});
-  inn.addEventListener('touchmove',e=>{if(y0==null)return;dy=e.touches[0].clientY-y0;if(dy>0){np.classList.add('drag');np.style.transform=`translateY(${dy}px)`}},{passive:true});
-  inn.addEventListener('touchend',()=>{if(y0==null)return;np.classList.remove('drag');np.style.transform='';if(dy>110)closeNp();y0=null})})();
+/* scorri in basso per chiudere: funziona ovunque (anche sulla copertina), con un colpo veloce o trascinando */
+(()=>{const np=$('np'),inn=$('npIn');let st=null;
+  inn.addEventListener('touchstart',e=>{if(e.target.closest('.scrub')||e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT'){st=null;return}
+    const t=e.touches[0];st={x:t.clientX,y:t.clientY,t:Date.now(),top:inn.scrollTop<=0,dir:null,dy:0}},{passive:true});
+  inn.addEventListener('touchmove',e=>{if(!st)return;const t=e.touches[0],dx=t.clientX-st.x,dy=t.clientY-st.y;
+    if(!st.dir&&(Math.abs(dx)>8||Math.abs(dy)>8))st.dir=Math.abs(dy)>Math.abs(dx)?'v':'h';
+    if(st.dir!=='v')return;
+    if(dy>0&&(st.top||inn.scrollTop<=0)){st.drag=true;st.dy=dy;e.preventDefault();np.classList.add('drag');np.style.transform=`translateY(${dy}px)`;np.style.borderRadius='18px 18px 0 0'}
+    else if(st.drag){st.dy=0;np.style.transform=''}},{passive:false});
+  const end=()=>{if(!st)return;const s0=st;st=null;if(!s0.drag)return;
+    const dt=Date.now()-s0.t,fast=s0.dy>30&&s0.dy/dt>0.45;np.classList.remove('drag');
+    if(s0.dy>80||fast){np.style.transform='';np.style.borderRadius='';closeNp()}else{np.style.transform='';np.style.borderRadius=''}};
+  inn.addEventListener('touchend',end);inn.addEventListener('touchcancel',end)})();
 
 /* scorri sulla copertina per cambiare brano */
 function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false;
@@ -1249,7 +1258,7 @@ const fromInput=files=>[...files].map(f=>({file:f,path:f.webkitRelativePath||f.n
 $('fileIn').addEventListener('change',e=>{if(!$('sheet').hidden)closeSheet();const l=fromInput(e.target.files||[]);e.target.value='';if(!l.length){toast('Nessun file selezionato');return}importEntries(l)});
 $('dirIn').addEventListener('change',e=>{if(!$('sheet').hidden)closeSheet();const l=fromInput(e.target.files||[]);e.target.value='';if(!l.length){toast('La cartella è vuota o il telefono non permette di sceglierla: usa "Scegli i brani"',4500);return}importEntries(l)});
 $('miniPlay').onclick=$('play').onclick=toggle;$('miniNext').onclick=$('next').onclick=()=>next(false);$('prev').onclick=prev;
-$('openNp').onclick=openNp;$('closeNp').onclick=closeNp;$('queueBtn').onclick=queueSheet;
+$('openNp').onclick=openNp;$('closeNp').onclick=closeNp;document.querySelector('#npIn > .grab').addEventListener('click',closeNp);$('queueBtn').onclick=queueSheet;
 $('npFav').onclick=()=>{const t=S.byId.get(S.curId);if(t)setFav(t,!t.fav)};
 $('npShare').onclick=()=>{const t=S.byId.get(S.curId);if(t)shareTrack(t)};
 $('npMore').onclick=()=>S.curId&&trackMenu(S.curId);
@@ -1270,7 +1279,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010005904';
+const APP_VER='20261010010706';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
