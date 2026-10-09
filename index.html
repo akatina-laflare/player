@@ -595,6 +595,7 @@ function render(){
   $('count').textContent=v.length?`${v.length} ${v.length===1?'brano':'brani'} · ${fmtLong(tot)}${size?' · '+fmtSize(size):''}`:'';
   $('playAll').disabled=$('shufAll').disabled=!v.length;
   L.innerHTML=v.length?v.map(rowHTML).join(''):`<li class="none">${S.query?'Nessun brano corrisponde alla ricerca.':S.tab==='favs'?'Nessun preferito: tocca il cuore su un brano per aggiungerlo qui.':'Nessun brano.'}</li>`;
+  if(dbx.refresh)setTimeout(()=>warmLinks(S.visible.slice(0,25)),400);
   L.classList.toggle('anim',animate);if(animate)[...L.children].slice(0,18).forEach((r,i)=>r.style.animationDelay=(i*22)+'ms');
   L.querySelectorAll('[data-art]').forEach(el=>{const t=S.byId.get(el.dataset.art);paintArt(el,t);if(t.id===S.curId)el.insertAdjacentHTML('beforeend','<div class="bars"><i></i><i></i><i></i></div>')})}
 
@@ -603,10 +604,20 @@ async function blobFor(t,opt){if(t.blob)return t.blob;
   if(t.src==='dbx'){const b=await idb.get('blobs',t.id);if(b)return b;if(opt&&opt.fetch){try{return await dbxDownload(t.dbxId)}catch(e){return null}}return null}if(t.demo){t.blob=await synth(t);const w=await parseWav(t.blob);if(w){t.peaks=await wavPeaks(t.blob,w);t.info={fmt:'WAV',bits:16,rate:w.rate,ch:w.ch,lossless:true}}return t.blob}
   return await idb.get('blobs',t.id)}
 const shareBlobs={};
-const tempLinks={};
+const tempLinks=(()=>{try{const o=JSON.parse(ls.get('sp-links')||'{}'),n=Date.now();for(const k in o)if(o[k].exp<n)delete o[k];return o}catch(e){return{}}})();
+const saveLinks=()=>ls.set('sp-links',JSON.stringify(tempLinks));
+let warmQ=[],warming=false;
+function warmLinks(ids){for(const id of ids){const t=S.byId.get(id);if(t&&t.src==='dbx'&&!t.offline&&!(tempLinks[id]&&tempLinks[id].exp>Date.now()+600e3)&&!warmQ.includes(id))warmQ.push(id)}
+  if(warming||!dbx.refresh)return;warming=true;
+  (async()=>{try{while(warmQ.length){const id=warmQ.shift();const t=S.byId.get(id);if(!t)continue;
+      try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks()}catch(e){break}}}
+    finally{warming=false}})()}
+const preAudio=new Audio();preAudio.preload='auto';preAudio.muted=true;
+async function preloadNext(){const id=S.up[0]||S.ctx[S.pos+1];const t=id&&S.byId.get(id);if(!t)return;
+  if(t.src==='dbx'&&!t.offline){warmLinks([id]);setTimeout(()=>{const c=tempLinks[id];if(c&&preAudio.src!==c.url){preAudio.src=c.url;try{preAudio.load()}catch(e){}}},1500)}}
 async function srcFor(t){if(t.src==='dbx'&&!urls[t.id]){const off=await idb.get('blobs',t.id);
     if(!off){const c=tempLinks[t.id];if(c&&c.exp>Date.now())return c.url;
-      try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[t.id]={url:r.link,exp:Date.now()+3.5*3600e3};return r.link}
+      try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[t.id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks();return r.link}
       catch(e){toast(navigator.onLine===false?'Serve internet per questo brano. Dal menu ··· puoi scaricarlo sul telefono':'Dropbox non risponde: riprova tra poco',4200);return'__fail'}}}
   if(urls[t.id]){if(!shareBlobs[t.id])blobFor(t).then(b=>{if(b)shareBlobs[t.id]=b});return urls[t.id]}const b=await blobFor(t);if(!b)return null;for(const k in shareBlobs)if(k!==t.id)delete shareBlobs[k];shareBlobs[t.id]=b;
   const ks=Object.keys(urls);if(ks.length>4)for(const k of ks.slice(0,ks.length-4))if(k!==S.curId){URL.revokeObjectURL(urls[k]);delete urls[k]}
@@ -619,8 +630,9 @@ async function load(id,autoplay,at=0){const t=S.byId.get(id);if(!t)return;const 
   updateNow();render();if(changed){const b=$('bigArt');b.classList.remove('swap');void b.offsetWidth;b.classList.add('swap')}
   const src=await srcFor(t);if(my!==loadToken)return;
   if(src==='__fail')return;
+  if(audio.src===src&&autoplay){audio.play().catch(()=>{});return}
   if(!src){toast('Questo brano non è più salvato sul dispositivo: aggiungilo di nuovo');return}
-  audio.src=src;audio.playbackRate=S.speed;if(at)audio.addEventListener('loadedmetadata',()=>{try{audio.currentTime=at}catch(e){}},{once:true});
+  audio.src=src;audio.playbackRate=S.speed;setTimeout(preloadNext,2500);if(at)audio.addEventListener('loadedmetadata',()=>{try{audio.currentTime=at}catch(e){}},{once:true});
   if(autoplay){try{await audio.play()}catch(e){if(e&&e.name!=='AbortError'&&e.name!=='NotAllowedError')playError(t)}}
   setMedia(t);
   if(!t.peaks&&!t.demo){const b=await blobFor(t);let p=null;
