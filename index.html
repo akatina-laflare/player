@@ -573,7 +573,7 @@ function rowHTML(t){const playing=t.id===S.curId;const sub=[S.tab!=='folder'?las
   return`<li class="row${playing?' playing':''}${audio.paused?' paused':''}" data-id="${t.id}" role="button" tabindex="0">
     <div class="art" data-art="${t.id}"></div>
     <div class="meta"><div class="txt"><div class="t">${esc(t.name)}</div><div class="s">${t.demo?'<span class="tag">Esempio</span>':''}${esc(sub)}</div></div>
-    ${t.src==='dbx'&&t.offline?`<span class="s" aria-label="Scaricato sul telefono" title="Scaricato sul telefono">${ICON.down}</span>`:''}${t.fav?`<span class="heart" aria-label="Preferito">${ICON.heart(14,true)}</span>`:''}
+    ${isCloud(t)&&t.offline?`<span class="s" aria-label="Scaricato sul telefono" title="Scaricato sul telefono">${ICON.down}</span>`:''}${t.fav?`<span class="heart" aria-label="Preferito">${ICON.heart(14,true)}</span>`:''}
     <button class="more" data-more="${t.id}" aria-label="Opzioni per ${esc(t.name)}">${ICON.more}</button></div></li>`}
 let lastView='';
 function render(){
@@ -607,7 +607,7 @@ function render(){
 
 /* ================= riproduzione ================= */
 async function blobFor(t,opt){if(t.blob)return t.blob;
-  if(t.src==='dbx'){const b=await idb.get('blobs',t.id);if(b)return b;if(opt&&opt.fetch){try{return await dbxDownload(t.dbxId)}catch(e){return null}}return null}if(t.demo){t.blob=await synth(t);const w=await parseWav(t.blob);if(w){t.peaks=await wavPeaks(t.blob,w);t.info={fmt:'WAV',bits:16,rate:w.rate,ch:w.ch,lossless:true}}return t.blob}
+  if(isCloud(t)){const b=await idb.get('blobs',t.id);if(b)return b;if(opt&&opt.fetch){try{return await cloudBlob(t)}catch(e){return null}}return null}if(t.demo){t.blob=await synth(t);const w=await parseWav(t.blob);if(w){t.peaks=await wavPeaks(t.blob,w);t.info={fmt:'WAV',bits:16,rate:w.rate,ch:w.ch,lossless:true}}return t.blob}
   return await idb.get('blobs',t.id)}
 const shareBlobs={};
 const tempLinks=(()=>{try{const o=JSON.parse(ls.get('sp-links')||'{}'),n=Date.now();for(const k in o)if(o[k].exp<n)delete o[k];return o}catch(e){return{}}})();
@@ -620,8 +620,10 @@ function warmLinks(ids){for(const id of ids){const t=S.byId.get(id);if(t&&t.src=
     finally{warming=false}})()}
 const preAudio=new Audio();preAudio.preload='auto';preAudio.muted=true;
 async function preloadNext(){const id=S.up[0]||S.ctx[S.pos+1];const t=id&&S.byId.get(id);if(!t)return;
+  if(t.src==='gd'&&!t.offline){const u=gdUrl(t);if(preAudio.src!==u){preAudio.src=u;try{preAudio.load()}catch(e){}}return}
   if(t.src==='dbx'&&!t.offline){warmLinks([id]);setTimeout(()=>{const c=tempLinks[id];if(c&&preAudio.src!==c.url){preAudio.src=c.url;try{preAudio.load()}catch(e){}}},1500)}}
-async function srcFor(t){if(t.src==='dbx'&&!urls[t.id]){const off=await idb.get('blobs',t.id);
+async function srcFor(t){if(t.src==='gd'&&!urls[t.id]){const off=await idb.get('blobs',t.id);if(!off)return gdUrl(t)}
+  if(t.src==='dbx'&&!urls[t.id]){const off=await idb.get('blobs',t.id);
     if(!off){const c=tempLinks[t.id];if(c&&c.exp>Date.now())return c.url;
       try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[t.id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks();return r.link}
       catch(e){toast(navigator.onLine===false?'Serve internet per questo brano. Dal menu ··· puoi scaricarlo sul telefono':'Dropbox non risponde: riprova tra poco',4200);return'__fail'}}}
@@ -643,7 +645,7 @@ async function load(id,autoplay,at=0){const t=S.byId.get(id);if(!t)return;const 
   setMedia(t);
   if(!t.peaks&&!t.demo){const b=await blobFor(t);let p=null;
     if(b){const w=/^wav/.test(extOf(t.file))?await parseWav(b):null;p=w?await wavPeaks(b,w):await decodePeaks(b)}
-    else if(t.src==='dbx'&&/^wav/.test(extOf(t.file))){const rb=remoteBlob(t);const w=await parseWav(rb);if(w){if(!t.duration)t.duration=w.duration;p=await wavPeaks(rb,w)}}
+    else if(isCloud(t)&&/^wav/.test(extOf(t.file))){const rb=remoteBlob(t);const w=await parseWav(rb);if(w){if(!t.duration)t.duration=w.duration;p=await wavPeaks(rb,w)}}
     if(p&&S.byId.has(t.id)){t.peaks=p;saveTrack(t);if(S.curId===t.id)drawWave()}}}
 function playError(t){const i=t.info||{};toast(i.float&&i.bits===64?'Questo WAV è a 64-bit float: riesportalo da Logic a 24-bit':`Non riesco a riprodurre "${t.name}". Prova a riesportarlo da Logic in WAV 24-bit o AAC`,4500)}
 audio.addEventListener('error',()=>{const t=S.byId.get(S.curId);if(t&&audio.src)playError(t)});
@@ -697,7 +699,7 @@ function updateNow(){const t=S.byId.get(S.curId);if(!t)return;
   if(i.kbps)kv.push(`<span>${i.kbps} kbps</span>`);if(t.size)kv.push(`<span>${fmtSize(t.size)}</span>`);
   if(t.duration)kv.push(`<span>${fmt(t.duration)}</span>`);kv.push(`<span>${t.plays||0} ascolti</span>`);
   if(i.lossless)kv.push(`<span class="tag ll" style="margin:0">Lossless</span>`);
-  $('tech').innerHTML=kv.join('')+`<span style="flex-basis:100%;font-family:var(--font)">${esc(t.file)}${t.src==='dbx'?` · Dropbox, ${t.offline?'scaricato sul telefono':'in streaming'}`:''}</span>`;
+  $('tech').innerHTML=kv.join('')+`<span style="flex-basis:100%;font-family:var(--font)">${esc(t.file)}${isCloud(t)?` · ${cloudName(t)}, ${t.offline?'scaricato sul telefono':'in streaming'}`:''}</span>`;
   progress();syncPlay()}
 function setMedia(t){try{if(!('mediaSession'in navigator))return;const a=artPNG(t);
   navigator.mediaSession.metadata=new MediaMetadata({title:t.name,artist:lastSeg(t.folder)||'Le mie produzioni',album:'Studio',artwork:a?[{src:a,sizes:'512x512',type:a.startsWith('data:image/png')?'image/png':'image/jpeg'}]:[]});
@@ -788,11 +790,11 @@ function trackMenu(id){const t=S.byId.get(id);if(!t)return;
     {icon:ICON.image,label:'Cambia copertina',forId:'coverIn',fn:()=>{coverTarget={track:t.id}}},
     ...(t.cover?[{icon:ICON.undo,label:'Torna alla copertina classica',fn:async()=>{delete t.cover;await saveTrack(t);refreshArt(t)}}]:[]),
     ...(S.tab!=='folder'||S.folder!==t.folder?[{icon:ICON.goFolder,label:'Vai alla cartella',hint:lastSeg(t.folder),fn:()=>{closeNp();openFolder(t.folder)}}]:[]),
-    ...(t.src==='dbx'?(t.offline?[{icon:ICON.dl,label:'Togli dal telefono',hint:'resta su Dropbox',fn:()=>dbxUnkeep(t)}]:[{icon:ICON.dl,label:'Scarica sul telefono',hint:'per l\'offline',fn:()=>dbxKeep(t)}]):[]),
+    ...(isCloud(t)?(t.offline?[{icon:ICON.dl,label:'Togli dal telefono',hint:'resta su '+cloudName(t),fn:()=>dbxUnkeep(t)}]:[{icon:ICON.dl,label:'Scarica sul telefono',hint:'per l\'offline',fn:()=>dbxKeep(t)}]):[]),
     {icon:ICON.trash,label:'Elimina dal player',danger:true,confirm:'Tocca di nuovo per eliminare',fn:()=>deleteTrack(t)}];
-  sheetOptions('',opts,t.demo?'Brano di esempio: sparisce da solo quando aggiungi le tue canzoni.':t.src==='dbx'?'Eliminare qui lo toglie solo dal player: il file resta nella cartella Dropbox e puoi ripristinarlo dalle impostazioni.':'Eliminare qui cancella solo la copia nel player: il file originale resta dov\'era.',headFor(t));paintArt($('shArt'),t)}
+  sheetOptions('',opts,t.demo?'Brano di esempio: sparisce da solo quando aggiungi le tue canzoni.':isCloud(t)?`Eliminare qui lo toglie solo dal player: il file resta nella cartella ${cloudName(t)} e puoi ripristinarlo dalle impostazioni.`:'Eliminare qui cancella solo la copia nel player: il file originale resta dov\'era.',headFor(t));paintArt($('shArt'),t)}
 const hiddenIds=()=>{try{return JSON.parse(ls.get('sp-hidden')||'[]')}catch(e){return[]}};
-async function deleteTrack(t){if(t.src==='dbx'){const h=new Set(hiddenIds());h.add(t.id);ls.set('sp-hidden',JSON.stringify([...h]))}
+async function deleteTrack(t){if(isCloud(t)){const h=new Set(hiddenIds());h.add(t.id);ls.set('sp-hidden',JSON.stringify([...h]))}
   await removeTracks([t.id],true);toast('Brano eliminato dal player')}
 function setFav(t,v){t.fav=v;saveTrack(t);if(t.id===S.curId){const b=$('npFav');b.innerHTML=ICON.heart(24,v);b.setAttribute('aria-pressed',String(v));b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop')}render();toast(v?'Aggiunto ai preferiti':'Tolto dai preferiti',1500)}
 function renameSheet(t){openSheet(`<h2 class="sh-title">Rinomina</h2><input class="field" id="rn" value="${esc(t.name)}" maxlength="120" autocomplete="off"><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn ghost" id="rnC">Annulla</button><button class="btn" id="rnS">Salva</button></div>`,
@@ -818,7 +820,7 @@ function shareTrack(t){const b=shareBlobs[t.id];
   const done=p=>p.then(()=>{},e=>{if(e&&e.name==='AbortError')return;toast('Condivisione non riuscita. Riprova tra un attimo')});
   if(b&&navigator.canShare){const f=new File([b],t.file,{type:b.type||MIME[extOf(t.file)]||'audio/wav'});
     if(navigator.canShare({files:[f]})){done(navigator.share({files:[f],title:t.name}));return}}
-  if(!b&&!t.demo){toast(t.src==='dbx'?'Preparo il file da Dropbox…':'Sto preparando il file: riprova tra un secondo',6000);blobFor(t,{fetch:true}).then(x=>{if(x){shareBlobs[t.id]=x;toast('File pronto: tocca di nuovo Condividi')}else toast('Non riesco a scaricare il file: controlla la connessione')});return}
+  if(!b&&!t.demo){toast(isCloud(t)?'Preparo il file da '+cloudName(t)+'…':'Sto preparando il file: riprova tra un secondo',6000);blobFor(t,{fetch:true}).then(x=>{if(x){shareBlobs[t.id]=x;toast('File pronto: tocca di nuovo Condividi')}else toast('Non riesco a scaricare il file: controlla la connessione')});return}
   if(navigator.share){done(navigator.share({title:t.name,text:`Sto ascoltando "${t.name}"`}));return}
   toast('Su questo dispositivo la condivisione non è disponibile')}
 
@@ -837,8 +839,10 @@ async function settingsSheet(){
   let est='';try{if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();est=`${fmtSize(e.usage||0)} usati${e.quota?' su circa '+fmtSize(e.quota)+' disponibili':''}`}}catch(e){}
   let pers=null;try{pers=navigator.storage&&navigator.storage.persisted?await navigator.storage.persisted():null}catch(e){}
   const seg=(key,vals)=>`<div class="segs" data-key="${key}">${vals.map(([v,l])=>`<button data-v="${v}" aria-pressed="${SET[key]===v}">${l}</button>`).join('')}</div>`;
-  const mine=own().filter(t=>t.src!=='dbx'||t.offline);
+  const mine=own().filter(t=>!isCloud(t)||t.offline);
   openSheet(`<h2 class="sh-title">Impostazioni</h2>
+    <div class="sec">Google Drive</div>
+    ${gdSettingsHTML()}
     <div class="sec">Dropbox</div>
     ${dbxSettingsHTML()}
     <div class="sec">Aspetto</div>
@@ -860,23 +864,101 @@ async function settingsSheet(){
     el.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>{SET.accent=b.dataset.acc;saveSet();applySettings();el.querySelectorAll('[data-acc]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});
     el.querySelector('#tgTech').onclick=e=>{SET.tech=!SET.tech;saveSet();applySettings();e.currentTarget.setAttribute('aria-checked',String(SET.tech));render()};
     const p=el.querySelector('#persist');if(p)p.onclick=async()=>{let ok=false;try{ok=await navigator.storage.persist()}catch(e){}toast(ok?'Brani protetti':'Il browser non lo permette qui: aggiungi il player alla schermata Home');if(ok)settingsSheet()};
-    dbxSettingsMount(el);
-    const w=el.querySelector('#wipe');if(w)w.onclick=()=>{if(!w.dataset.armed){w.dataset.armed='1';w.querySelector('.lbl').textContent=`Tocca di nuovo per rimuovere ${mine.length} brani`;return}closeSheet();const loc=mine.filter(t=>t.src!=='dbx');removeTracks(loc.map(t=>t.id),true);mine.filter(t=>t.src==='dbx').forEach(t=>dbxUnkeep(t,true));toast('Brani rimossi dal telefono')}})}
+    dbxSettingsMount(el);gdSettingsMount(el);
+    const w=el.querySelector('#wipe');if(w)w.onclick=()=>{if(!w.dataset.armed){w.dataset.armed='1';w.querySelector('.lbl').textContent=`Tocca di nuovo per rimuovere ${mine.length} brani`;return}closeSheet();const loc=mine.filter(t=>!isCloud(t));removeTracks(loc.map(t=>t.id),true);mine.filter(t=>isCloud(t)).forEach(t=>dbxUnkeep(t,true));toast('Brani rimossi dal telefono')}})}
 
 const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 function addSheet(){const dirOK=!IOS&&('webkitdirectory'in document.createElement('input'));
-  openSheet(`<h2 class="sh-title">Aggiungi brani</h2>${DBX_KEY?`<div class="opts"><button class="opt" id="addDbx">${ICON.cloud}<span class="lbl">${!dbx.refresh?'Collega Dropbox':!SET.dbxRoot?'Scegli la cartella Dropbox':'Aggiorna da Dropbox'}</span><span class="hint">${!dbx.refresh?'automatico':SET.dbxRoot?esc(SET.dbxRoot.name):''}</span></button></div>`:''}<div class="opts">
+  openSheet(`<h2 class="sh-title">Aggiungi brani</h2>${GD_KEY?`<div class="opts"><button class="opt" id="addGd">${ICON.cloud}<span class="lbl">${SET.gdRoot?'Aggiorna da Google Drive':'Cartella Google Drive'}</span><span class="hint">${SET.gdRoot?esc(SET.gdRoot.name):'automatico'}</span></button></div>`:''}${DBX_KEY?`<div class="opts"><button class="opt" id="addDbx">${ICON.cloud}<span class="lbl">${!dbx.refresh?'Collega Dropbox':!SET.dbxRoot?'Scegli la cartella Dropbox':'Aggiorna da Dropbox'}</span><span class="hint">${!dbx.refresh?'automatico':SET.dbxRoot?esc(SET.dbxRoot.name):''}</span></button></div>`:''}<div class="opts">
     ${dirOK?`<label class="opt" for="dirIn" role="button">${ICON.folder}<span class="lbl">Scegli una cartella</span><span class="hint">importa tutto</span></label>`:''}
     <label class="opt" for="fileIn" role="button">${ICON.file}<span class="lbl">Scegli i brani</span></label></div>
     <p class="note">${IOS?'Nel selettore apri la cartella dei tuoi bounce, tocca <b>Seleziona</b> in alto e poi <b>Seleziona tutto</b>: entrano tutti insieme, WAV compresi.':'Con "Scegli una cartella" entrano tutti i brani, anche quelli nelle sottocartelle. Puoi anche trascinare la cartella dentro la pagina.'} I brani già presenti vengono saltati.</p>`,
-  el=>{mountPickers(el);const d=el.querySelector('#addDbx');if(d)d.onclick=()=>{closeSheet();if(!dbx.refresh)dbxConnect();else if(!SET.dbxRoot)setTimeout(()=>dbxFolderSheet(''),320);else dbxSync(true)}})}
+  el=>{mountPickers(el);const gb=el.querySelector('#addGd');if(gb)gb.onclick=()=>{closeSheet();if(SET.gdRoot)gdSync(true);else setTimeout(gdConnectSheet,320)};const d=el.querySelector('#addDbx');if(d)d.onclick=()=>{closeSheet();if(!dbx.refresh)dbxConnect();else if(!SET.dbxRoot)setTimeout(()=>dbxFolderSheet(''),320);else dbxSync(true)}})}
 function folderMenu(f){const ts=lib().filter(t=>t.folder===f);sheetOptions(lastSeg(f),[
   {icon:ICON.playNext,label:'Riproduci',fn:()=>startContext(sorted(ts).map(t=>t.id),sorted(ts)[0].id,lastSeg(f))},
   {icon:ICON.image,label:'Cambia copertina della cartella',forId:'coverIn',fn:()=>{coverTarget={folder:f}}},
   ...(S.covers[f]?[{icon:ICON.undo,label:'Togli copertina della cartella',fn:async()=>{delete S.covers[f];await idb.del('meta','cover:'+f);render();updateNow()}}]:[]),
-  ...(ts.some(t=>!t.demo)?[{icon:ICON.trash,label:`Elimina i ${ts.length} brani dal player`,danger:true,confirm:'Tocca di nuovo per eliminarli',fn:async()=>{const h=new Set(hiddenIds());ts.filter(t=>t.src==='dbx').forEach(t=>h.add(t.id));ls.set('sp-hidden',JSON.stringify([...h]));await removeTracks(ts.map(t=>t.id),true);toast('Cartella eliminata dal player')}}]:[])])}
+  ...(ts.some(t=>!t.demo)?[{icon:ICON.trash,label:`Elimina i ${ts.length} brani dal player`,danger:true,confirm:'Tocca di nuovo per eliminarli',fn:async()=>{const h=new Set(hiddenIds());ts.filter(t=>isCloud(t)).forEach(t=>h.add(t.id));ls.set('sp-hidden',JSON.stringify([...h]));await removeTracks(ts.map(t=>t.id),true);toast('Cartella eliminata dal player')}}]:[])])}
 function openFolder(f){S.tab='folder';S.folder=f;S.query='';$('q').value='';render();window.scrollTo(0,0)}
 
+
+/* ================= servizi cloud (comune) ================= */
+const isCloud=t=>!!t&&(t.src==='dbx'||t.src==='gd');
+const cloudName=t=>t&&t.src==='gd'?'Google Drive':'Dropbox';
+const cloudBlob=t=>t.src==='gd'?gdBlob(t):dbxDownload(t.dbxId);
+const cloudRange=(t,a,b)=>t.src==='gd'?gdRange(t,a,b):dbxDownload(t.dbxId,a,b);
+
+/* ================= Google Drive (cartella condivisa con link) ================= */
+const GD_KEY='AIzaSyBVooJnclRD09pgGIZR1cwQW-Hu05R9IUk';
+const GD='https://www.googleapis.com/drive/v3/';
+const gdUrl=t=>`${GD}files/${encodeURIComponent(t.gdId)}?alt=media&key=${GD_KEY}`;
+async function gdApi(path,params){const u=new URL(GD+path);Object.entries({...params,key:GD_KEY,supportsAllDrives:'true'}).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u);if(!r.ok){let m='';try{m=(await r.json()).error.message}catch(e){}throw Object.assign(new Error('gd '+r.status+' '+m),{status:r.status})}return r.json()}
+async function gdRange(t,a,b){const r=await fetch(gdUrl(t),{headers:{Range:`bytes=${a}-${b}`}});if(!r.ok&&r.status!==206)throw new Error('gd '+r.status);return r.arrayBuffer()}
+async function gdBlob(t){const r=await fetch(gdUrl(t));if(!r.ok)throw new Error('gd '+r.status);return r.blob()}
+function gdParse(v){v=(v||'').trim();let m=v.match(/folders\/([\w-]{10,})/)||v.match(/[?&]id=([\w-]{10,})/);if(m)return m[1];if(/^[\w-]{10,}$/.test(v))return v;return null}
+async function gdUse(id,quiet){if(!GD_KEY){toast('Google Drive non è ancora configurato');return false}
+  try{const f=await gdApi('files/'+encodeURIComponent(id),{fields:'id,name,mimeType'});
+    if(f.mimeType!=='application/vnd.google-apps.folder'){toast('Questo link è di un file, non di una cartella',3500);return false}
+    SET.gdRoot={id:f.id,name:f.name};saveSet();if(!quiet)toast('Cartella collegata: '+f.name);gdSync(true);return true}
+  catch(e){toast(e.status===404?'Cartella non trovata: controlla che sia condivisa con "Chiunque abbia il link"':'Google Drive non risponde: riprova',4500);return false}}
+function gdConnectSheet(){openSheet(`<h2 class="sh-title">Cartella Google Drive</h2>
+    <p class="note">Su Google Drive tieni premuto sulla cartella dei brani › <b>Condividi</b> › <b>Accesso generale</b>: <b>Chiunque abbia il link</b> (Visualizzatore). Poi copia il link e incollalo qui.</p>
+    <input class="field" id="gdIn" placeholder="https://drive.google.com/drive/folders/…" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url">
+    <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn ghost" id="gdC">Annulla</button><button class="btn" id="gdS">Collega</button></div>
+    <p class="note">Chi ha il link della cartella può ascoltare i brani: dallo solo a chi vuoi tu. Il player legge e basta, non modifica nulla su Drive.</p>`,
+  el=>{const f=el.querySelector('#gdIn');const go=async()=>{const id=gdParse(f.value);if(!id){toast('Questo non sembra il link di una cartella Drive');return}const b=el.querySelector('#gdS');b.disabled=true;b.textContent='Controllo…';if(await gdUse(id))closeSheet();else{b.disabled=false;b.textContent='Collega'}};
+    el.querySelector('#gdS').onclick=go;el.querySelector('#gdC').onclick=closeSheet;f.onkeydown=e=>{if(e.key==='Enter')go()}})}
+function gdSettingsHTML(){if(!GD_KEY)return'<p class="note">Google Drive non è ancora configurato in questo player.</p>';
+  if(!SET.gdRoot)return`<div class="opts"><button class="opt" id="gdGo">${ICON.cloud}<span class="lbl">Collega una cartella</span></button></div>`;
+  const link=REDIR+'?gd='+SET.gdRoot.id;
+  return`<div class="opts"><div class="opt"><span class="lbl">Cartella<span class="s" style="display:block;margin-top:2px">${esc(SET.gdRoot.name)}</span></span></div>
+    <button class="opt" id="gdNow"><span class="lbl">Aggiorna ora</span></button>
+    <button class="opt" id="gdLink">${ICON.share}<span class="lbl">Invia il player con i brani</span><span class="hint">per il tuo amico</span></button>
+    <button class="opt" id="gdChange"><span class="lbl">Cambia cartella</span></button>
+    <div class="opt"><span class="lbl">Scarica i brani sul telefono<span class="s" style="display:block;margin-top:2px;white-space:normal">Si sentono anche senza internet, ma occupano spazio</span></span><button class="toggle" role="switch" id="tgKeep2" aria-checked="${!!SET.dbxKeep}" aria-label="Scarica i brani sul telefono"></button></div>
+    <button class="opt danger" id="gdOff"><span class="lbl">Scollega Google Drive</span></button></div>
+    <p class="note">"Invia il player con i brani" manda un link che apre il player già collegato a questa cartella. Chi riceve il player senza quel link lo trova vuoto.</p>`}
+function gdSettingsMount(el){const g=k=>el.querySelector(k);
+  if(g('#gdGo'))g('#gdGo').onclick=()=>{closeSheet();setTimeout(gdConnectSheet,320)};
+  if(g('#gdChange'))g('#gdChange').onclick=()=>{closeSheet();setTimeout(gdConnectSheet,320)};
+  if(g('#gdNow'))g('#gdNow').onclick=()=>{closeSheet();gdSync(true)};
+  if(g('#tgKeep2'))g('#tgKeep2').onclick=e=>{SET.dbxKeep=!SET.dbxKeep;saveSet();e.currentTarget.setAttribute('aria-checked',String(SET.dbxKeep));if(SET.dbxKeep)dbxKeepAll()};
+  if(g('#gdLink'))g('#gdLink').onclick=async()=>{const link=REDIR+'?gd='+SET.gdRoot.id;
+    try{if(navigator.share){await navigator.share({title:'Studio Player',text:'Ascolta i nostri pezzi',url:link});return}}catch(e){if(e&&e.name==='AbortError')return}
+    try{await navigator.clipboard.writeText(link);toast('Link copiato')}catch(e){toast(link,6000)}};
+  const off=g('#gdOff');if(off)off.onclick=async()=>{if(!off.dataset.armed){off.dataset.armed='1';off.querySelector('.lbl').textContent='Tocca di nuovo: i brani di Drive spariscono dal player';return}
+    closeSheet();delete SET.gdRoot;saveSet();await removeTracks(S.tracks.filter(t=>t.src==='gd').map(t=>t.id),true);toast('Google Drive scollegato')}}
+async function gdBoot(){const q=new URLSearchParams(location.search);const id=q.get('gd');
+  if(id){history.replaceState(null,'',REDIR);if(!SET.gdRoot||SET.gdRoot.id!==id){if(SET.gdRoot)await removeTracks(S.tracks.filter(t=>t.src==='gd').map(t=>t.id),true);await gdUse(id);return}}
+  if(SET.gdRoot)gdSync(false)}
+let gdSyncing=false;
+async function gdSync(manual){if(!GD_KEY||!SET.gdRoot||gdSyncing)return;gdSyncing=true;
+  const P=$('prog'),PT=$('progT'),PB=$('progBar');if(manual){P.hidden=false;PT.textContent='Controllo Google Drive…';PB.style.width='15%'}
+  try{const files=[];const queue=[{id:SET.gdRoot.id,rel:''}];let guard=0;
+    while(queue.length&&guard++<300){const f=queue.shift();let tok='';
+      do{const r=await gdApi('files',{q:`'${f.id}' in parents and trashed=false`,fields:'nextPageToken,files(id,name,mimeType,size,md5Checksum,modifiedTime,createdTime)',pageSize:'1000',includeItemsFromAllDrives:'true',...(tok?{pageToken:tok}:{})});
+        for(const x of r.files||[]){if(x.mimeType==='application/vnd.google-apps.folder')queue.push({id:x.id,rel:f.rel?f.rel+'/'+x.name:x.name});else files.push({...x,rel:f.rel})}
+        tok=r.nextPageToken||''}while(tok)}
+    const folderOf=x=>x.rel||SET.gdRoot.name;
+    const aud=files.filter(x=>isAudio({name:x.name,type:x.mimeType||''})),imgs=files.filter(x=>isImg({name:x.name,type:x.mimeType||''}));
+    const hid=new Set(hiddenIds()),seen=new Set();let added=0,updated=0;const fresh=[];
+    for(const x of aud){const id='gd:'+x.id;if(hid.has(id))continue;seen.add(id);const folder=folderOf(x),hash=x.md5Checksum||x.modifiedTime;let t=S.byId.get(id);
+      if(!t){t={id,src:'gd',gdId:x.id,hash,name:clean(x.name),file:x.name,folder,size:+x.size||0,added:Date.parse(x.createdTime)||Date.now(),plays:0,fav:false,info:{fmt:extOf(x.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(x.name))}};
+        S.tracks.push(t);S.byId.set(id,t);added++;fresh.push(t);await saveTrack(t)}
+      else{let ch=false;if(t.hash!==hash){t.hash=hash;t.size=+x.size||0;t.file=x.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(x.name).toUpperCase()};if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
+        if(t.folder!==folder){t.folder=folder;ch=true}if(ch)await saveTrack(t)}}
+    const gone=S.tracks.filter(t=>t.src==='gd'&&!seen.has(t.id)).map(t=>t.id);if(gone.length)await removeTracks(gone,true);
+    if(own().length&&S.tracks.some(t=>t.demo)){if(S.byId.get(S.curId)?.demo){audio.pause();S.curId=null;$('mini').hidden=true}S.tracks=S.tracks.filter(t=>!t.demo);S.byId=new Map(S.tracks.map(t=>[t.id,t]))}
+    const byF={};imgs.forEach(x=>{const f=folderOf(x);(byF[f]=byF[f]||[]).push(x)});
+    for(const[f,list]of Object.entries(byF)){const pick=list.find(x=>/^(cover|folder|artwork|front|copertina|album)\b/i.test(x.name))||list[0];const h=pick.md5Checksum||pick.modifiedTime;
+      if(S.covers[f]&&ls.get('sp-cvh:'+f)===h)continue;try{const d=await imgToData(await gdBlob({gdId:pick.id}));if(d){S.covers[f]=d;await idb.put('meta',d,'cover:'+f);ls.set('sp-cvh:'+f,h)}}catch(e){}}
+    ls.set('sp-gd-last',String(Date.now()));render();if(S.curId)updateNow();
+    const parts=[];if(added)parts.push(added===1?'1 brano nuovo':`${added} brani nuovi`);if(updated)parts.push(updated===1?'1 aggiornato':`${updated} aggiornati`);if(gone.length)parts.push(`${gone.length} tolti`);
+    if(parts.length)toast('Drive: '+parts.join(' · '),3200);else if(manual)toast(aud.length?'Drive: tutto aggiornato':`Nella cartella "${SET.gdRoot.name}" non ci sono ancora brani`,3200);
+    dbxDetails(fresh);if(SET.dbxKeep)dbxKeepAll()}
+  catch(e){if(e.status===404)toast(`Non trovo più la cartella "${SET.gdRoot.name}": controlla che sia ancora condivisa con il link`,4500);else if(manual)toast('Google Drive non risponde: riprovo quando riapri il player',3500)}
+  finally{gdSyncing=false;setTimeout(()=>{P.hidden=true},300)}}
 
 /* ================= Dropbox ================= */
 const DBX_KEY='l75j4zke8la7h8o';
@@ -904,7 +986,7 @@ async function dbxApi(path,body){const init={method:'POST'};if(body!==undefined)
 async function dbxDownload(path,a,b){const h={'Dropbox-API-Arg':hdrArg({path})};if(a!=null)h.Range=`bytes=${a}-${b}`;
   const r=await dbxFetch('https://content.dropboxapi.com/2/files/download',{method:'POST',headers:h});return a!=null?r.arrayBuffer():r.blob()}
 function remoteBlob(t){let head=null;const HEAD=262144;
-  const get=async(a,b)=>{if(b<=HEAD&&t.size>0){if(!head)head=await dbxDownload(t.dbxId,0,Math.min(HEAD,t.size)-1);return head.slice(a,Math.min(b,head.byteLength))}return dbxDownload(t.dbxId,a,Math.min(b,t.size)-1)};
+  const get=async(a,b)=>{if(b<=HEAD&&t.size>0){if(!head)head=await cloudRange(t,0,Math.min(HEAD,t.size)-1);return head.slice(a,Math.min(b,head.byteLength))}return cloudRange(t,a,Math.min(b,t.size)-1)};
   return{size:t.size,type:'',slice:(a,b)=>({arrayBuffer:()=>get(a,b)})}}
 
 async function dbxBoot(){const q=new URLSearchParams(location.search);
@@ -988,11 +1070,11 @@ async function dbxDetails(list){const q=list.filter(t=>/^wav/.test(extOf(t.file)
   await Promise.all([work(),work(),work()]);if(q.length)render()}
 let keepBusy=false;
 async function dbxKeep(t,quiet){if(t.offline)return true;if(!quiet)toast('Scarico "'+t.name+'"…',8000);
-  try{const b=await dbxDownload(t.dbxId);const ok=await idb.put('blobs',b,t.id);if(!ok){toast('Spazio pieno: non riesco a salvarlo sul telefono');return false}
+  try{const b=await cloudBlob(t);const ok=await idb.put('blobs',b,t.id);if(!ok){toast('Spazio pieno: non riesco a salvarlo sul telefono');return false}
     t.offline=true;await saveTrack(t);render();if(t.id===S.curId)updateNow();if(!quiet)toast('Scaricato: ora si sente anche senza internet');return true}
   catch(e){if(!quiet)toast('Download non riuscito: controlla la connessione');return false}}
-async function dbxUnkeep(t,quiet){await idb.del('blobs',t.id);t.offline=false;await saveTrack(t);if(urls[t.id]&&t.id!==S.curId){URL.revokeObjectURL(urls[t.id]);delete urls[t.id]}render();if(t.id===S.curId)updateNow();if(!quiet)toast('Tolto dal telefono: resta su Dropbox')}
-async function dbxKeepAll(){if(keepBusy)return;keepBusy=true;try{const q=S.tracks.filter(t=>t.src==='dbx'&&!t.offline);for(const t of q){if(!SET.dbxKeep)break;if(!(await dbxKeep(t,true)))break}}finally{keepBusy=false}}
+async function dbxUnkeep(t,quiet){await idb.del('blobs',t.id);t.offline=false;await saveTrack(t);if(urls[t.id]&&t.id!==S.curId){URL.revokeObjectURL(urls[t.id]);delete urls[t.id]}render();if(t.id===S.curId)updateNow();if(!quiet)toast('Tolto dal telefono: resta su '+cloudName(t))}
+async function dbxKeepAll(){if(keepBusy)return;keepBusy=true;try{const q=S.tracks.filter(t=>isCloud(t)&&!t.offline);for(const t of q){if(!SET.dbxKeep)break;if(!(await dbxKeep(t,true)))break}}finally{keepBusy=false}}
 
 /* ================= eventi ================= */
 $('seg').onclick=e=>{const b=e.target.closest('button[data-tab]');if(!b)return;S.tab=b.dataset.tab;S.folder=null;render();window.scrollTo(0,0)};
@@ -1033,7 +1115,7 @@ document.addEventListener('dragenter',e=>{if([...(e.dataTransfer?.types||[])].in
 document.addEventListener('dragleave',()=>{dragN=Math.max(0,dragN-1);if(!dragN)$('drop').hidden=true});
 document.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files'))e.preventDefault()});
 document.addEventListener('drop',async e=>{if(!e.dataTransfer||!e.dataTransfer.files.length)return;e.preventDefault();dragN=0;$('drop').hidden=true;importEntries(await entriesFromDrop(e.dataTransfer))});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();else if(dbx.refresh&&SET.dbxRoot&&Date.now()-(+ls.get('sp-dbx-last')||0)>60000)dbxSync(false)});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();else{if(dbx.refresh&&SET.dbxRoot&&Date.now()-(+ls.get('sp-dbx-last')||0)>60000)dbxSync(false);if(SET.gdRoot&&Date.now()-(+ls.get('sp-gd-last')||0)>60000)gdSync(false)}});
 window.addEventListener('pagehide',savePos);
 
 /* ================= avvio ================= */
@@ -1044,6 +1126,7 @@ window.addEventListener('pagehide',savePos);
   try{const r=JSON.parse(ls.get('sp-resume')||'null');if(r&&S.byId.has(r.id)){S.ctx=(r.ctx||[]).filter(id=>S.byId.has(id));if(!S.ctx.includes(r.id))S.ctx=[r.id];S.ctxBase=[...S.ctx];S.pos=S.ctx.indexOf(r.id);S.ctxLabel=r.label||'';
     S.curId=r.id;lastPos=r.t||0;$('mini').hidden=false;updateNow();render();
     const t=S.byId.get(r.id),d=t.duration||0;$('miniProg').style.width=(d?lastPos/d*100:0)+'%';$('cur').textContent=fmt(lastPos);$('rem').textContent='-'+fmt(d-lastPos)}}catch(e){}
+  await gdBoot();
   await dbxBoot();
 })();
 </script>
