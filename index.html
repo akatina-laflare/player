@@ -866,7 +866,7 @@ function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false,vx=0,lx=0,
   el.addEventListener('click',e=>{if(moved){e.preventDefault();e.stopPropagation();moved=false}},true)}
 (()=>{const big=$('bigArt');
   const set=(x,o)=>{big.style.transform=x==null?'':`translateX(${x}px) rotate(${x/40}deg)`;big.style.opacity=o==null?'':o};
-  /* scorrimento sulla copertina: breve = ±5 s (destra avanti, sinistra indietro), lungo = cambia brano */
+  /* scorrimento sulla copertina: breve = ±5 s (sinistra avanti, destra indietro), lungo = cambia brano */
   const hint=document.createElement('div');hint.className='swhint';document.body.appendChild(hint);
   let swz=null,hintT=null;
   const FF='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 6v12l8.5-6zM12 6v12l8.5-6z"/></svg>',RW='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6v12l-8.5-6zM12 6v12l-8.5-6z"/></svg>';
@@ -875,7 +875,7 @@ function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false,vx=0,lx=0,
     if(audio.currentTime>3||S.pos<=0)return'Ricomincia';const t=S.byId.get(S.ctx[S.pos-1]);return t?'Precedente · '+t.name:'Ricomincia'};
   const showZone=(z,dx)=>{if(z===swz)return;swz=z;clearTimeout(hintT);hint.classList.remove('out');
     if(!z){hint.classList.remove('show','pop','track');return}
-    place(hint);const fwd=dx>0;
+    place(hint);const fwd=dx<0;
     hint.innerHTML=z==='track'?`${dx<0?FF:RW}<b>${esc(tname(dx<0?1:-1))}</b>`:`${fwd?FF:RW}<b>${fwd?'+':'−'}5 s</b>`;
     hint.classList.toggle('track',z==='track');hint.classList.add('show');hint.classList.remove('pop');void hint.offsetWidth;hint.classList.add('pop');
     try{navigator.vibrate&&navigator.vibrate(6)}catch(e){}};
@@ -897,7 +897,7 @@ function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false,vx=0,lx=0,
     reset:()=>{springBack();showZone(null)},
     end:(dx,v)=>{const k=kind(dx,v);if(k==='track'){showZone(null);goTrack(dx<0?1:-1);return}
       springBack();if(k!=='seek'){showZone(null);return}
-      const sv=dx>0?5:-5;if(!seekBy(sv)){showZone(null);return}ripple(sv>0);
+      const sv=dx<0?5:-5;if(!seekBy(sv)){showZone(null);return}ripple(sv>0);
       if(swz!=='seek')showZone('seek',dx);hint.classList.remove('pop');void hint.offsetWidth;hint.classList.add('out');
       hintT=setTimeout(()=>{hint.classList.remove('show','out','pop');swz=null},720)},
     go:goTrack});
@@ -1567,7 +1567,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010014020';
+const APP_VER='20261010014259';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
