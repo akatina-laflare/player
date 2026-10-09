@@ -963,12 +963,13 @@ async function settingsSheet(){
     <p class="note">Su iPhone aggiungi il player alla schermata Home (Condividi › Aggiungi a Home): così i brani restano salvati in modo stabile.</p>
     <div class="sec">Condividere con un amico</div>
     <p class="note">Il player parte sempre vuoto: chi lo riceve non vede i tuoi brani. Per fargli avere i pezzi, condividi con lui la cartella da Dropbox e chiedigli di aggiungerla al suo Dropbox. Poi nel suo player tocca Collega Dropbox con il suo account e sceglie quella cartella: i brani nuovi arrivano anche a lui da soli.</p>
+    <div class="opts"><button class="opt" id="updBtn"><span class="lbl">Controlla aggiornamenti</span><span class="hint">versione ${APP_VER.slice(6,8)}/${APP_VER.slice(4,6)} ${APP_VER.slice(8,10)}:${APP_VER.slice(10,12)}</span></button></div>
     ${mine.length?`<div class="sec">Dati</div><div class="opts"><button class="opt danger" id="wipe"><span class="lbl">Rimuovi tutti i brani dal player</span></button></div><p class="note">Cancella solo le copie salvate sul telefono. I file su iCloud e su Dropbox non vengono toccati.</p>`:''}`,
   el=>{el.querySelectorAll('.segs').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{SET[sg.dataset.key]=b.dataset.v;saveSet();applySettings();sg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));render();updateNow()}));
     el.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>{SET.accent=b.dataset.acc;saveSet();applySettings();el.querySelectorAll('[data-acc]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});
     el.querySelector('#tgTech').onclick=e=>{SET.tech=!SET.tech;saveSet();applySettings();e.currentTarget.setAttribute('aria-checked',String(SET.tech));render()};
     const p=el.querySelector('#persist');if(p)p.onclick=async()=>{let ok=false;try{ok=await navigator.storage.persist()}catch(e){}toast(ok?'Brani protetti':'Il browser non lo permette qui: aggiungi il player alla schermata Home');if(ok)settingsSheet()};
-    dbxSettingsMount(el);gdSettingsMount(el);
+    dbxSettingsMount(el);gdSettingsMount(el);const ub=el.querySelector('#updBtn');if(ub)ub.onclick=()=>{closeSheet();checkUpdate(true)};
     const gst=el.querySelector('#gdStatus');if(gst){const t=S.tracks.find(x=>x.src==='gd');const t0=Date.now();
       (t?fetch(gdUrl(t),{headers:{Range:'bytes=0-1'}}).then(r=>{if(!r.ok&&r.status!==206)throw 0}):Promise.reject()).then(()=>{gst.textContent=`Drive risponde (${Date.now()-t0} ms): i brani si preparano normalmente.`},()=>{gst.textContent=t?'Drive al momento non risponde da questa rete (blocco temporaneo di Google). Con i dati mobili dovrebbe funzionare; il blocco passa da solo.':''})}
     el.querySelectorAll('#cacheSeg button').forEach(b=>b.onclick=async()=>{SET.cacheMB=+b.dataset.mb;saveSet();el.querySelectorAll('#cacheSeg button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));await cacheTrim();if(SET.cacheMB)preloadNext()});
@@ -1250,8 +1251,23 @@ document.addEventListener('drop',async e=>{if(!e.dataTransfer||!e.dataTransfer.f
 document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();else{if(dbx.refresh&&SET.dbxRoot&&Date.now()-(+ls.get('sp-dbx-last')||0)>60000)dbxSync(false);if(SET.gdRoot&&Date.now()-(+ls.get('sp-gd-last')||0)>60000)gdSync(false)}});
 window.addEventListener('pagehide',savePos);
 
+/* ================= aggiornamenti automatici ================= */
+const APP_VER='20261009190459';
+let updChecking=false;
+async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
+  try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
+    if(m&&m[1]!==APP_VER){if(!audio.paused&&!manual){updPending=true;toast('Aggiornamento pronto: si applica alla prossima pausa',3000);return}
+      toast('Aggiorno il player…',2000);savePos();setTimeout(()=>location.replace(REDIR+'?u='+m[1]),600)}
+    else if(manual)toast('Hai già l\'ultima versione')}
+  catch(e){if(manual)toast('Non riesco a controllare: serve internet')}
+  finally{updChecking=false}}
+let updPending=false;
+audio.addEventListener('pause',()=>{if(updPending){updPending=false;checkUpdate(true)}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate(false)});
+
 /* ================= avvio ================= */
-(async()=>{applySettings();syncModes();syncPlay();updTimer();
+(async()=>{if(new URLSearchParams(location.search).has('u'))history.replaceState(null,'',REDIR);
+  applySettings();syncModes();syncPlay();updTimer();setTimeout(()=>checkUpdate(false),1500);
   const metas=await idb.all('tracks');
   try{const keys=await idb.keys('meta');for(const k of keys)if(String(k).startsWith('cover:'))S.covers[String(k).slice(6)]=await idb.get('meta',k)}catch(e){}
   S.tracks=metas.length?metas:DEMOS.map(d=>({...d}));S.byId=new Map(S.tracks.map(t=>[t.id,t]));render();
