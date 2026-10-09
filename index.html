@@ -117,6 +117,10 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .card .t{font-size:15px;font-weight:500}
 .card:active .art{transform:scale(.97)}
 
+.dupbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--chip);border-radius:14px;padding:10px 10px 10px 14px;margin:10px 0 4px}
+.dupbar span{display:flex;align-items:center;gap:8px;min-width:0;font-size:14px}
+.dupbar svg{color:var(--danger);flex:none}
+.dupbar .btn{padding:9px 14px;font-size:14px;background:var(--danger)}
 .empty{border:1.5px dashed var(--line);border-radius:16px;padding:22px 18px;margin:14px 0;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
 .empty h2{margin:0;font-family:var(--display);font-size:20px;letter-spacing:-.01em}
 .empty p{margin:0;color:var(--muted);line-height:1.45;max-width:52ch}
@@ -594,7 +598,9 @@ function render(){
   $('sortL').textContent=SORTS[SET.sort];
   const L=$('list'),G=$('grid'),E=$('emptyBox'),FH=$('fhead');E.innerHTML='';
   const mine=own();
-  if(!mine.length&&S.tab==='songs')E.innerHTML=`<p class="sub" style="margin:10px 0 0">Brani di esempio. Aggiungi i tuoi da <button class="acc" data-act="goFolders" style="font-size:13px;font-weight:600">Cartelle</button> o con il tasto +.</p>`;
+  const nd=S.tab!=='folders'?dupeCount():0;
+  if(nd)E.innerHTML=`<div class="dupbar"><span>${ICON.trash}<b>${nd} ${nd===1?'doppione':'doppioni'}</b> nella libreria</span><button class="btn" data-act="dedupe">Rimuovi</button></div>`;
+  else if(!mine.length&&S.tab==='songs')E.innerHTML=`<p class="sub" style="margin:10px 0 0">Brani di esempio. Aggiungi i tuoi da <button class="acc" data-act="goFolders" style="font-size:13px;font-weight:600">Cartelle</button> o con il tasto +.</p>`;
   if(S.tab==='folders'){
     L.innerHTML='';L.hidden=true;FH.hidden=true;$('songTools').hidden=true;G.hidden=false;const fs=folders();
     $('count').textContent=fs.length?`${fs.length} ${fs.length===1?'cartella':'cartelle'}`:'';
@@ -846,7 +852,9 @@ async function settingsSheet(){
   let pers=null;try{pers=navigator.storage&&navigator.storage.persisted?await navigator.storage.persisted():null}catch(e){}
   const seg=(key,vals)=>`<div class="segs" data-key="${key}">${vals.map(([v,l])=>`<button data-v="${v}" aria-pressed="${SET[key]===v}">${l}</button>`).join('')}</div>`;
   const mine=own().filter(t=>!isCloud(t)||t.offline);
+  const nDup=dupeCount();
   openSheet(`<h2 class="sh-title">Impostazioni</h2>
+    <div class="opts"><button class="opt${nDup?' danger':''}" id="dedupe" ${nDup?'':'disabled'}>${ICON.trash}<span class="lbl">Rimuovi i doppioni</span><span class="hint">${nDup?nDup:'nessuno'}</span></button></div>
     <div class="sec">Google Drive</div>
     ${gdSettingsHTML()}
     <div class="sec">Dropbox</div>
@@ -858,7 +866,6 @@ async function settingsSheet(){
     ${seg('coverStyle',[['tinta','Tinta unita'],['grafite','Grafite']])}
     <p class="note">Se nella cartella c'è un'immagine (per esempio cover.jpg) diventa la copertina di tutti i brani della cartella. Puoi sempre cambiarla dal menu ··· di un brano o di una cartella.</p>
     <div class="sec">Libreria</div>
-    ${(()=>{const n=findDupes().reduce((a,d)=>a+d.drop.length,0);return n?`<div class="opts" style="margin-bottom:8px"><button class="opt danger" id="dedupe">${ICON.trash}<span class="lbl">Rimuovi i doppioni</span><span class="hint">${n}</span></button></div>`:''})()}
     <div class="opts"><div class="opt"><span class="lbl">Mostra formato e qualità</span><button class="toggle" role="switch" id="tgTech" aria-checked="${SET.tech}" aria-label="Mostra formato e qualità"></button></div></div>
     <div class="sec">Spazio sul telefono</div>
     <div class="opts"><div class="opt"><span class="lbl">${mine.length} ${mine.length===1?'brano':'brani'} · ${fmtSize(mine.reduce((s,t)=>s+(t.size||0),0))}${est?`<span class="s" style="display:block;margin-top:2px">${esc(est)}</span>`:''}</span></div>
@@ -891,11 +898,18 @@ function openFolder(f){S.tab='folder';S.folder=f;S.query='';$('q').value='';rend
 
 
 /* ================= doppioni ================= */
-const normName=n=>String(n||'').toLowerCase().replace(/\.[a-z0-9]+$/,'').replace(/[_\s]+/g,' ').trim();
+const normName=n=>String(n||'').toLowerCase().normalize('NFC').replace(/\.[a-z0-9]+$/,'').replace(/[_\s]+/g,' ').replace(/\s*(\(\d+\)|copia|copy)$/,'').trim();
 const srcRank=t=>t.src==='gd'?3:t.src==='dbx'?2:1;
 function findDupes(){const groups=new Map();
-  for(const t of S.tracks){if(t.demo)continue;const k=normName(t.file||t.name)+'|'+(t.size||0);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(t)}
-  const out=[];for(const g of groups.values())if(g.length>1){g.sort((a,b)=>srcRank(b)-srcRank(a)||(b.offline?1:0)-(a.offline?1:0));out.push({keep:g[0],drop:g.slice(1)})}return out}
+  for(const t of S.tracks){if(t.demo)continue;const k=normName(t.file||t.name)+'|'+lastSeg(t.folder||'').toLowerCase();if(!groups.has(k))groups.set(k,[]);groups.get(k).push(t)}
+  const out=[];for(const g of groups.values())if(g.length>1){g.sort((a,b)=>srcRank(b)-srcRank(a)||(b.offline?1:0)-(a.offline?1:0));const keep=g[0];
+    const drop=g.slice(1).filter(o=>o.src!==keep.src||o.size===keep.size);if(drop.length)out.push({keep,drop})}
+  /* stesso nome in cartelle con nome diverso tra servizi diversi: confronta per nome e dimensione */
+  const seen=new Set(out.flatMap(d=>[d.keep.id,...d.drop.map(x=>x.id)]));const bySize=new Map();
+  for(const t of S.tracks){if(t.demo||seen.has(t.id))continue;const k=normName(t.file||t.name)+'|'+(t.size||0);if(!bySize.has(k))bySize.set(k,[]);bySize.get(k).push(t)}
+  for(const g of bySize.values())if(g.length>1){g.sort((a,b)=>srcRank(b)-srcRank(a));out.push({keep:g[0],drop:g.slice(1)})}
+  return out}
+const dupeCount=()=>findDupes().reduce((a,d)=>a+d.drop.length,0);
 async function dedupe(quiet){const ds=findDupes();if(!ds.length){if(!quiet)toast('Nessun doppione');return 0}
   const h=new Set(hiddenIds());let n=0;const ids=[];
   for(const{keep,drop}of ds){for(const d of drop){if(d.fav)keep.fav=true;keep.plays=(keep.plays||0)+(d.plays||0);if(!keep.cover&&d.cover)keep.cover=d.cover;
@@ -1112,7 +1126,7 @@ let lpT=null;$('list').addEventListener('touchstart',e=>{const r=e.target.closes
 ['touchmove','touchcancel'].forEach(ev=>$('list').addEventListener(ev,()=>{if(lpT!=='done'){clearTimeout(lpT);lpT=null}},{passive:true}));
 $('list').addEventListener('touchend',e=>{if(lpT==='done')e.preventDefault();else clearTimeout(lpT);lpT=null});
 $('list').addEventListener('contextmenu',e=>{const r=e.target.closest('.row');if(r){e.preventDefault();trackMenu(r.dataset.id)}});
-document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a)return;if(a.dataset.act==='add')addSheet();if(a.dataset.act==='goFolders'){S.tab='folders';S.folder=null;render();window.scrollTo(0,0)}});
+document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a)return;if(a.dataset.act==='add')addSheet();if(a.dataset.act==='dedupe')dedupe(false);if(a.dataset.act==='goFolders'){S.tab='folders';S.folder=null;render();window.scrollTo(0,0)}});
 $('q').oninput=e=>{S.query=e.target.value;render()};
 $('sortBtn').onclick=()=>sheetOptions('Ordina per',Object.entries(SORTS).map(([k,l])=>({label:l,sel:SET.sort===k,fn:()=>{SET.sort=k;saveSet();render()}})));
 $('playAll').onclick=()=>{if(!S.visible.length)return;if(S.shuffle){S.shuffle=false;syncModes()}startContext(S.visible,S.visible[0],$('h1').textContent)};
