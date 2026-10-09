@@ -635,7 +635,7 @@ function warmLinks(ids){for(const id of ids){const t=S.byId.get(id);if(t&&t.src=
     finally{warming=false}})()}
 const preAudio=new Audio();preAudio.preload='auto';preAudio.muted=true;
 async function preloadNext(){const id=S.up[0]||S.ctx[S.pos+1];const t=id&&S.byId.get(id);if(!t)return;
-  if(t.src==='gd'&&!t.offline){const u=gdUrl(t);if(preAudio.src!==u){preAudio.src=u;try{preAudio.load()}catch(e){}}return}
+  if(t.src==='gd')return;
   if(t.src==='dbx'&&!t.offline){warmLinks([id]);setTimeout(()=>{const c=tempLinks[id];if(c&&preAudio.src!==c.url){preAudio.src=c.url;try{preAudio.load()}catch(e){}}},1500)}}
 async function srcFor(t){if(t.src==='gd'&&!urls[t.id]){const off=await idb.get('blobs',t.id);if(!off)return gdUrl(t)}
   if(t.src==='dbx'&&!urls[t.id]){const off=await idb.get('blobs',t.id);
@@ -661,7 +661,7 @@ async function load(id,autoplay,at=0){const t=S.byId.get(id);if(!t)return;const 
   setMedia(t);
   if(!t.peaks&&!t.demo){const b=await blobFor(t);let p=null;
     if(b){const w=/^wav/.test(extOf(t.file))?await parseWav(b):null;p=w?await wavPeaks(b,w):await decodePeaks(b)}
-    else if(isCloud(t)&&/^wav/.test(extOf(t.file))&&!t.duration){const rb=remoteBlob(t);const w=await parseWav(rb);if(w){t.duration=w.duration;saveTrack(t)}}
+    else if(t.src==='dbx'&&/^wav/.test(extOf(t.file))&&!t.duration){const rb=remoteBlob(t);const w=await parseWav(rb);if(w){t.duration=w.duration;saveTrack(t)}}
     if(p&&S.byId.has(t.id)){t.peaks=p;saveTrack(t);if(S.curId===t.id)drawWave()}}}
 function playError(t){const i=t.info||{};toast(i.float&&i.bits===64?'Questo WAV è a 64-bit float: riesportalo da Logic a 24-bit':`Non riesco a riprodurre "${t.name}". Prova a riesportarlo da Logic in WAV 24-bit o AAC`,4500)}
 const fellBack=new Set();
@@ -670,7 +670,7 @@ async function cloudFallback(t){if(fellBack.has(t.id))return false;fellBack.add(
   try{const b=await cloudBlob(t);if(S.curId!==id)return true;urls[id]=URL.createObjectURL(typed(b,t.file));shareBlobs[id]=b;audio.src=urls[id];
     if(at)audio.addEventListener('loadedmetadata',()=>{try{audio.currentTime=at}catch(e){}},{once:true});
     try{await audio.play()}catch(e){}toast(audio.paused?'Pronto: tocca play':'In riproduzione',1500)}
-  catch(e){toast(navigator.onLine===false?'Serve internet per questo brano':'Non riesco a caricare "'+t.name+'": riprova tra poco',4000)}
+  catch(e){toast(navigator.onLine===false?'Serve internet per questo brano':t.src==='gd'?'Google Drive ha bloccato per un po\' la tua rete: riprova più tardi o con i dati mobili':'Non riesco a caricare "'+t.name+'": riprova tra poco',5000)}
   return true}
 audio.addEventListener('error',()=>{const t=S.byId.get(S.curId);if(!t||!audio.src)return;
   if(isCloud(t)&&!audio.src.startsWith('blob:')){cloudFallback(t);return}
@@ -1114,7 +1114,7 @@ async function dbxSync(manual){if(!dbx.refresh||!SET.dbxRoot||dbxSyncing)return;
     dbxDetails(fresh);if(SET.dbxKeep)dbxKeepAll();if(SET.autoDedupe!==false)setTimeout(()=>dedupe(true).then(n=>{if(n)toast(n===1?'1 doppione nascosto':`${n} doppioni nascosti`)}),1200)}
   catch(e){if(e&&e.status===409){toast(`Non trovo più la cartella "${SET.dbxRoot.name}" su Dropbox: sceglila di nuovo dalle impostazioni`,4500)}else if(manual||e.message!=='nolink')toast('Dropbox non risponde: riprovo quando riapri il player',3500)}
   finally{dbxSyncing=false;setTimeout(()=>{P.hidden=true},300)}}
-async function dbxDetails(list){const q=list.filter(t=>/^wav/.test(extOf(t.file))&&!t.duration);let i=0;
+async function dbxDetails(list){const q=list.filter(t=>t.src!=='gd'&&/^wav/.test(extOf(t.file))&&!t.duration);let i=0;
   const work=async()=>{while(i<q.length){const t=q[i++];try{const w=await parseWav(remoteBlob(t));if(w&&S.byId.has(t.id)){t.duration=w.duration;t.info={fmt:'WAV',bits:w.bits,rate:w.rate,ch:w.ch,float:w.tag===3,lossless:true};await saveTrack(t)}}catch(e){}}};
   await Promise.all([work(),work(),work()]);if(q.length)render()}
 let keepBusy=false;
