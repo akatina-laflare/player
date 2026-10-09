@@ -648,7 +648,7 @@ function render(){
   $('count').textContent=v.length?`${v.length} ${v.length===1?'brano':'brani'} · ${fmtLong(tot)}${size?' · '+fmtSize(size):''}`:'';
   $('playAll').disabled=$('shufAll').disabled=!v.length;
   L.innerHTML=v.length?v.map(rowHTML).join(''):`<li class="none">${S.query?'Nessun brano corrisponde alla ricerca.':S.tab==='favs'?'Nessun preferito: tocca il cuore su un brano per aggiungerlo qui.':'Nessun brano.'}</li>`;
-  if(dbx.refresh)setTimeout(()=>warmLinks(S.visible.slice(0,25)),400);
+  if(dbxOn())setTimeout(()=>warmLinks(S.visible.slice(0,25)),400);
   L.classList.toggle('anim',animate);if(animate)[...L.children].slice(0,18).forEach((r,i)=>r.style.animationDelay=(i*22)+'ms');
   L.querySelectorAll('[data-art]').forEach(el=>{const t=S.byId.get(el.dataset.art);paintArt(el,t);if(t.id===S.curId)el.insertAdjacentHTML('beforeend','<div class="bars"><i></i><i></i><i></i></div>')})}
 
@@ -661,9 +661,9 @@ const tempLinks=(()=>{try{const o=JSON.parse(ls.get('sp-links')||'{}'),n=Date.no
 const saveLinks=()=>ls.set('sp-links',JSON.stringify(tempLinks));
 let warmQ=[],warming=false;
 function warmLinks(ids){for(const id of ids){const t=S.byId.get(id);if(t&&t.src==='dbx'&&!t.offline&&!(tempLinks[id]&&tempLinks[id].exp>Date.now()+600e3)&&!warmQ.includes(id))warmQ.push(id)}
-  if(warming||!dbx.refresh)return;warming=true;
+  if(warming||!dbxOn())return;warming=true;
   (async()=>{try{while(warmQ.length){const id=warmQ.shift();const t=S.byId.get(id);if(!t)continue;
-      try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks()}catch(e){break}}}
+      try{const r=await dbxApi(acctFor(t),'files/get_temporary_link',{path:t.dbxId});tempLinks[id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks()}catch(e){break}}}
     finally{warming=false}})()}
 const preAudio=new Audio();preAudio.preload='auto';preAudio.muted=true;
 /* memoria veloce: i brani preparati restano sul telefono fino al limite scelto, poi si cancellano i meno recenti */
@@ -700,7 +700,7 @@ async function srcFor(t){if(isCloud(t)&&!urls[t.id]&&!t.offline){const c=await c
   if(t.src==='gd'&&!urls[t.id]){const off=await idb.get('blobs',t.id);if(!off)return gdUrl(t)}
   if(t.src==='dbx'&&!urls[t.id]){const off=await idb.get('blobs',t.id);
     if(!off){const c=tempLinks[t.id];if(c&&c.exp>Date.now())return c.url;
-      try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[t.id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks();return r.link}
+      try{const r=await dbxApi(acctFor(t),'files/get_temporary_link',{path:t.dbxId});tempLinks[t.id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks();return r.link}
       catch(e){toast(navigator.onLine===false?'Serve internet per questo brano. Dal menu ··· puoi scaricarlo sul telefono':'Dropbox non risponde: riprova tra poco',4200);return'__fail'}}}
   if(urls[t.id]){if(!shareBlobs[t.id])blobFor(t).then(b=>{if(b)shareBlobs[t.id]=b});return urls[t.id]}const b=await blobFor(t);if(!b)return null;for(const k in shareBlobs)if(k!==t.id)delete shareBlobs[k];shareBlobs[t.id]=b;
   trimUrls();
@@ -964,11 +964,11 @@ async function settingsSheet(){
   const nDup=dupeCount();
   openSheet(`<h2 class="sh-title">Impostazioni</h2>
     <div class="opts"><button class="opt${nDup?' danger':''}" id="dedupe" ${nDup?'':'disabled'}>${ICON.trash}<span class="lbl">Rimuovi i doppioni</span><span class="hint">${nDup?nDup:'nessuno'}</span></button></div>
+    <div class="sec">Dropbox</div>
+    ${dbxSettingsHTML()}
     <div class="sec">Google Drive</div>
     ${SET.gdRoot?'<p class="note" id="gdStatus">Controllo la connessione con Drive…</p>':''}
     ${gdSettingsHTML()}
-    <div class="sec">Dropbox</div>
-    ${dbxSettingsHTML()}
     <div class="sec">Aspetto</div>
     ${seg('theme',[['auto','Automatico'],['light','Chiaro'],['dark','Scuro']])}
     <div class="swatches" role="group" aria-label="Colore">${Object.entries(ACCENTS).map(([k,c])=>`<button class="sw" data-acc="${k}" aria-label="${k}" aria-pressed="${SET.accent===k}" style="background:${c}"></button>`).join('')}</div>
@@ -1003,11 +1003,11 @@ async function settingsSheet(){
 
 const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 function addSheet(){const dirOK=!IOS&&('webkitdirectory'in document.createElement('input'));
-  openSheet(`<h2 class="sh-title">Aggiungi brani</h2>${GD_KEY?`<div class="opts"><button class="opt" id="addGd">${ICON.cloud}<span class="lbl">${SET.gdRoot?'Aggiorna da Google Drive':'Cartella Google Drive'}</span><span class="hint">${SET.gdRoot?esc(SET.gdRoot.name):'automatico'}</span></button></div>`:''}${DBX_KEY?`<div class="opts"><button class="opt" id="addDbx">${ICON.cloud}<span class="lbl">${!dbx.refresh?'Collega Dropbox':!SET.dbxRoot?'Scegli la cartella Dropbox':'Aggiorna da Dropbox'}</span><span class="hint">${!dbx.refresh?'automatico':SET.dbxRoot?esc(SET.dbxRoot.name):''}</span></button></div>`:''}<div class="opts">
+  openSheet(`<h2 class="sh-title">Aggiungi brani</h2>${GD_KEY?`<div class="opts"><button class="opt" id="addGd">${ICON.cloud}<span class="lbl">${SET.gdRoot?'Aggiorna da Google Drive':'Cartella Google Drive'}</span><span class="hint">${SET.gdRoot?esc(SET.gdRoot.name):'automatico'}</span></button></div>`:''}${DBX_KEY?`<div class="opts"><button class="opt" id="addDbx">${ICON.cloud}<span class="lbl">${!dbxOn()?'Collega Dropbox':!SET.dbxFolders.length?'Scegli la cartella Dropbox':'Aggiorna da Dropbox'}</span><span class="hint">${!dbxOn()?'automatico':SET.dbxFolders.length===1?esc(SET.dbxFolders[0].name):SET.dbxFolders.length?SET.dbxFolders.length+' cartelle':''}</span></button></div>`:''}<div class="opts">
     ${dirOK?`<label class="opt" for="dirIn" role="button">${ICON.folder}<span class="lbl">Scegli una cartella</span><span class="hint">importa tutto</span></label>`:''}
     <label class="opt" for="fileIn" role="button">${ICON.file}<span class="lbl">Scegli i brani</span></label></div>
     <p class="note">${IOS?'Nel selettore apri la cartella dei tuoi bounce, tocca <b>Seleziona</b> in alto e poi <b>Seleziona tutto</b>: entrano tutti insieme, WAV compresi.':'Con "Scegli una cartella" entrano tutti i brani, anche quelli nelle sottocartelle. Puoi anche trascinare la cartella dentro la pagina.'} I brani già presenti vengono saltati.</p>`,
-  el=>{mountPickers(el);const gb=el.querySelector('#addGd');if(gb)gb.onclick=()=>{closeSheet();if(SET.gdRoot)gdSync(true);else setTimeout(gdConnectSheet,320)};const d=el.querySelector('#addDbx');if(d)d.onclick=()=>{closeSheet();if(!dbx.refresh)dbxConnect();else if(!SET.dbxRoot)setTimeout(()=>dbxFolderSheet(''),320);else dbxSync(true)}})}
+  el=>{mountPickers(el);const gb=el.querySelector('#addGd');if(gb)gb.onclick=()=>{closeSheet();if(SET.gdRoot)gdSync(true);else setTimeout(gdConnectSheet,320)};const d=el.querySelector('#addDbx');if(d)d.onclick=()=>{closeSheet();if(!dbxOn())dbxConnect(false);else if(!SET.dbxFolders.length)setTimeout(()=>dbxFolderSheet(''),320);else dbxSync(true)}})}
 function folderMenu(f){const ts=lib().filter(t=>t.folder===f);sheetOptions(lastSeg(f),[
   {icon:ICON.playNext,label:'Riproduci',fn:()=>startContext(sorted(ts).map(t=>t.id),sorted(ts)[0].id,lastSeg(f))},
   {icon:ICON.image,label:'Cambia copertina della cartella',forId:'coverIn',fn:()=>{coverTarget={folder:f}}},
@@ -1042,8 +1042,8 @@ async function dedupe(quiet){const ds=findDupes();if(!ds.length){if(!quiet)toast
 /* ================= servizi cloud (comune) ================= */
 const isCloud=t=>!!t&&(t.src==='dbx'||t.src==='gd');
 const cloudName=t=>t&&t.src==='gd'?'Google Drive':'Dropbox';
-const cloudBlob=t=>t.src==='gd'?gdBlob(t):dbxDownload(t.dbxId);
-const cloudRange=(t,a,b)=>t.src==='gd'?gdRange(t,a,b):dbxDownload(t.dbxId,a,b);
+const cloudBlob=t=>t.src==='gd'?gdBlob(t):dbxDownload(acctFor(t),t.dbxId);
+const cloudRange=(t,a,b)=>t.src==='gd'?gdRange(t,a,b):dbxDownload(acctFor(t),t.dbxId,a,b);
 
 /* ================= Google Drive (cartella condivisa con link) ================= */
 const GD_KEY='AIzaSyBVooJnclRD09pgGIZR1cwQW-Hu05R9IUk';
@@ -1117,110 +1117,169 @@ async function gdSync(manual){if(!GD_KEY||!SET.gdRoot||gdSyncing)return;gdSyncin
   catch(e){if(e.status===404)toast(`Non trovo più la cartella "${SET.gdRoot.name}": controlla che sia ancora condivisa con il link`,4500);else if(manual)toast('Google Drive non risponde: riprovo quando riapri il player',3500)}
   finally{gdSyncing=false;setTimeout(()=>{P.hidden=true},300)}}
 
-/* ================= Dropbox ================= */
+/* ================= Dropbox (più account, più cartelle) ================= */
 const DBX_KEY='l75j4zke8la7h8o';
 const REDIR=location.origin+location.pathname;
-let dbx=(()=>{try{return JSON.parse(ls.get('sp-dbx')||'{}')}catch(e){return{}}})();
-const saveDbx=()=>ls.set('sp-dbx',JSON.stringify(dbx));
+let accts=(()=>{try{const a=JSON.parse(ls.get('sp-dbx-accts')||'null');if(Array.isArray(a))return a}catch(e){}
+  try{const o=JSON.parse(ls.get('sp-dbx')||'{}');if(o.refresh)return[{id:'',name:o.name,email:o.email,refresh:o.refresh,access:o.access,exp:o.exp}]}catch(e){}return[]})();
+const saveAccts=()=>{ls.set('sp-dbx-accts',JSON.stringify(accts));ls.del('sp-dbx')};
+if(!Array.isArray(SET.dbxFolders)){SET.dbxFolders=SET.dbxRoot&&accts[0]?[{...SET.dbxRoot,acct:accts[0].id}]:[];delete SET.dbxRoot;saveSet()}
+const acctById=id=>accts.find(a=>a.id===id);
+const acctFor=t=>(t&&acctById(t.acct))||accts[0];
+const dbxOn=()=>accts.some(a=>a.refresh);
+const fkey=f=>f.acct+'|'+(f.id||f.path);
+const acctLabel=a=>a?(a.name||a.email||'Account Dropbox'):'Dropbox';
 const hdrArg=o=>JSON.stringify(o).replace(/[\u007f-￿]/g,c=>'\\u'+('000'+c.charCodeAt(0).toString(16)).slice(-4));
 const b64url=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-async function dbxConnect(){if(!DBX_KEY){toast('Dropbox non è ancora configurato');return}
+async function dbxConnect(more){if(!DBX_KEY){toast('Dropbox non è ancora configurato');return}
   try{const a=new Uint8Array(48);crypto.getRandomValues(a);const v=b64url(a);ls.set('sp-dbx-v',v);
     const ch=b64url(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)));
-    location.href='https://www.dropbox.com/oauth2/authorize?'+new URLSearchParams({client_id:DBX_KEY,response_type:'code',code_challenge:ch,code_challenge_method:'S256',redirect_uri:REDIR,token_access_type:'offline'})}
+    const p={client_id:DBX_KEY,response_type:'code',code_challenge:ch,code_challenge_method:'S256',redirect_uri:REDIR,token_access_type:'offline'};
+    if(more)p.force_reauthentication='true';
+    location.href='https://www.dropbox.com/oauth2/authorize?'+new URLSearchParams(p)}
   catch(e){toast('Apri il player dal link sicuro (https) per collegare Dropbox')}}
 async function dbxTokenReq(params){const r=await fetch('https://api.dropboxapi.com/oauth2/token',{method:'POST',body:new URLSearchParams({client_id:DBX_KEY,...params})});
   if(!r.ok)throw Object.assign(new Error('token'),{status:r.status});return r.json()}
-async function dbxToken(force){if(!dbx.refresh)throw new Error('nolink');if(!force&&dbx.access&&Date.now()<dbx.exp-60000)return dbx.access;
-  if(!dbxToken.p)dbxToken.p=dbxTokenReq({grant_type:'refresh_token',refresh_token:dbx.refresh}).then(j=>{dbx.access=j.access_token;dbx.exp=Date.now()+j.expires_in*1000;saveDbx();return dbx.access},e=>{if(e.status===400||e.status===401){dbx={};saveDbx();toast('Dropbox si è scollegato: ricollegalo dalle impostazioni',4200)}throw e}).finally(()=>{dbxToken.p=null});
-  return dbxToken.p}
-async function dbxFetch(url,init,retry=true){const tok=await dbxToken();const r=await fetch(url,{...init,headers:{...(init.headers||{}),Authorization:'Bearer '+tok}});
-  if(r.status===401&&retry){await dbxToken(true);return dbxFetch(url,init,false)}
-  if(r.status===429&&retry){await new Promise(z=>setTimeout(z,(+r.headers.get('Retry-After')||2)*1000));return dbxFetch(url,init,false)}
+const tokP=new Map();
+async function dbxToken(ac,force){if(!ac||!ac.refresh)throw new Error('nolink');if(!force&&ac.access&&Date.now()<ac.exp-60000)return ac.access;
+  if(!tokP.has(ac))tokP.set(ac,dbxTokenReq({grant_type:'refresh_token',refresh_token:ac.refresh}).then(j=>{ac.access=j.access_token;ac.exp=Date.now()+j.expires_in*1000;saveAccts();return ac.access},
+    e=>{if(e.status===400||e.status===401){ac.refresh=null;ac.access=null;saveAccts();toast(`Dropbox "${acctLabel(ac)}" si è scollegato: ricollegalo dalle impostazioni`,4200)}throw e}).finally(()=>tokP.delete(ac)));
+  return tokP.get(ac)}
+async function dbxFetch(ac,url,init,retry=true){const tok=await dbxToken(ac);const r=await fetch(url,{...init,headers:{...(init.headers||{}),Authorization:'Bearer '+tok}});
+  if(r.status===401&&retry){await dbxToken(ac,true);return dbxFetch(ac,url,init,false)}
+  if(r.status===429&&retry){await new Promise(z=>setTimeout(z,(+r.headers.get('Retry-After')||2)*1000));return dbxFetch(ac,url,init,false)}
   if(!r.ok&&r.status!==206){let t='';try{t=await r.text()}catch(e){}throw Object.assign(new Error('dbx '+r.status+' '+t.slice(0,200)),{status:r.status,body:t})}return r}
-async function dbxApi(path,body){const init={method:'POST'};if(body!==undefined){init.headers={'Content-Type':'application/json'};init.body=JSON.stringify(body)}
-  return (await dbxFetch('https://api.dropboxapi.com/2/'+path,init)).json()}
-async function dbxDownload(path,a,b){const h={'Dropbox-API-Arg':hdrArg({path})};if(a!=null)h.Range=`bytes=${a}-${b}`;
-  const r=await dbxFetch('https://content.dropboxapi.com/2/files/download',{method:'POST',headers:h});return a!=null?r.arrayBuffer():r.blob()}
+async function dbxApi(ac,path,body){const init={method:'POST'};if(body!==undefined){init.headers={'Content-Type':'application/json'};init.body=JSON.stringify(body)}
+  return (await dbxFetch(ac,'https://api.dropboxapi.com/2/'+path,init)).json()}
+async function dbxDownload(ac,path,a,b){const h={'Dropbox-API-Arg':hdrArg({path})};if(a!=null)h.Range=`bytes=${a}-${b}`;
+  const r=await dbxFetch(ac,'https://content.dropboxapi.com/2/files/download',{method:'POST',headers:h});return a!=null?r.arrayBuffer():r.blob()}
 function remoteBlob(t){let head=null;const HEAD=262144;
   const get=async(a,b)=>{if(b<=HEAD&&t.size>0){if(!head)head=await cloudRange(t,0,Math.min(HEAD,t.size)-1);return head.slice(a,Math.min(b,head.byteLength))}return cloudRange(t,a,Math.min(b,t.size)-1)};
   return{size:t.size,type:'',slice:(a,b)=>({arrayBuffer:()=>get(a,b)})}}
 
+/* account vecchi (salvati prima del multi-account): recupero l'id una volta */
+async function dbxFillIds(){for(const ac of accts){if(ac.id||!ac.refresh)continue;
+  try{const a=await dbxApi(ac,'users/get_current_account');const old=ac.id;ac.id=a.account_id;ac.name=a.name&&a.name.display_name||ac.name;ac.email=a.email||ac.email;
+    const dup=accts.find(x=>x!==ac&&x.id===ac.id);if(dup){accts.splice(accts.indexOf(dup),1)}
+    SET.dbxFolders.forEach(f=>{if(f.acct===old)f.acct=ac.id});saveSet();saveAccts();
+    for(const t of S.tracks)if(t.src==='dbx'&&!t.acct){t.acct=ac.id;await saveTrack(t)}}catch(e){}}}
+
 async function dbxBoot(){const q=new URLSearchParams(location.search);
   if(q.has('code')||q.has('error')){history.replaceState(null,'',REDIR);
     if(q.has('error')){toast('Collegamento a Dropbox annullato');}
-    else{try{const j=await dbxTokenReq({grant_type:'authorization_code',code:q.get('code'),code_verifier:ls.get('sp-dbx-v')||'',redirect_uri:REDIR});
-        dbx={refresh:j.refresh_token,access:j.access_token,exp:Date.now()+j.expires_in*1000};saveDbx();ls.del('sp-dbx-v');
-        try{const a=await dbxApi('users/get_current_account');dbx.name=a.name&&a.name.display_name;dbx.email=a.email;saveDbx()}catch(e){}
-        toast('Dropbox collegato'+(dbx.name?': '+dbx.name:''));setTimeout(()=>dbxFolderSheet(''),500);return}
+    else{try{await dbxFillIds();
+        const j=await dbxTokenReq({grant_type:'authorization_code',code:q.get('code'),code_verifier:ls.get('sp-dbx-v')||'',redirect_uri:REDIR});ls.del('sp-dbx-v');
+        const tmp={id:j.account_id||'',refresh:j.refresh_token,access:j.access_token,exp:Date.now()+j.expires_in*1000};
+        try{const a=await dbxApi(tmp,'users/get_current_account');tmp.id=a.account_id;tmp.name=a.name&&a.name.display_name;tmp.email=a.email}catch(e){}
+        let ac=tmp.id&&acctById(tmp.id);const isNew=!ac;
+        if(ac)Object.assign(ac,{refresh:tmp.refresh,access:tmp.access,exp:tmp.exp,name:tmp.name||ac.name,email:tmp.email||ac.email});else{ac=tmp;accts.push(ac)}
+        saveAccts();
+        const hasF=SET.dbxFolders.some(f=>f.acct===ac.id);
+        toast((isNew?'Dropbox collegato':'Dropbox ricollegato')+(ac.name?': '+ac.name:''));
+        if(hasF)dbxSync(true);else setTimeout(()=>dbxFolderSheet('',ac),500);return}
       catch(e){toast('Collegamento a Dropbox non riuscito: riprova',4000);return}}}
-  if(dbx.refresh&&SET.dbxRoot)dbxSync(false)}
+  if(dbxOn()){await dbxFillIds();if(SET.dbxFolders.length)dbxSync(false)}}
 
 function dbxSettingsHTML(){if(!DBX_KEY)return'<p class="note">Dropbox non è ancora configurato in questo player.</p>';
-  if(!dbx.refresh)return`<div class="opts"><button class="opt" id="dbxGo">${ICON.cloud}<span class="lbl">Collega Dropbox</span></button></div><p class="note">Metti i bounce di Logic in una cartella Dropbox dal Mac: compaiono qui da soli ogni volta che apri il player. Il player li legge e basta, non modifica né cancella nulla.</p>`;
-  return`<div class="opts">
-    <div class="opt"><span class="lbl">Account<span class="s" style="display:block;margin-top:2px">${esc(dbx.name||dbx.email||'Collegato')}</span></span></div>
-    <button class="opt" id="dbxFolder"><span class="lbl">Cartella</span><span class="hint">${SET.dbxRoot?esc(SET.dbxRoot.name):'Scegli…'}</span></button>
-    <button class="opt" id="dbxNow"><span class="lbl">Aggiorna ora</span></button>
+  if(!accts.length)return`<div class="opts"><button class="opt" id="dbxGo">${ICON.cloud}<span class="lbl">Collega Dropbox</span></button></div><p class="note">Metti i bounce di Logic in una cartella Dropbox dal Mac: compaiono qui da soli ogni volta che apri il player. Il player li legge e basta, non modifica né cancella nulla.</p>`;
+  const blocks=accts.map((a,ai)=>{const fs=SET.dbxFolders.map((f,fi)=>[f,fi]).filter(([f])=>f.acct===a.id);
+    const n=S.tracks.filter(t=>t.src==='dbx'&&acctFor(t)===a).length;
+    return`<div class="opts acct">
+      <div class="opt"><span class="lbl">${esc(acctLabel(a))}<span class="s" style="display:block;margin-top:2px">${a.refresh?(a.email&&a.name?esc(a.email)+' · ':'')+(n===1?'1 brano':n+' brani'):'Scollegato'}</span></span>${a.refresh?'':`<button class="acc" data-relink="${ai}" style="font-size:15px">Ricollega</button>`}</div>
+      ${fs.map(([f,fi])=>`<div class="opt">${ICON.folder}<span class="lbl">${esc(f.name)}<span class="s" style="display:block;margin-top:2px;white-space:normal">${esc(f.display||f.path||'')}</span></span><button class="acc" data-rmf="${fi}" style="font-size:15px">Togli</button></div>`).join('')}
+      ${a.refresh?`<button class="opt" data-addf="${ai}"><span class="lbl acc">+ Aggiungi cartella</span></button>`:''}
+      <button class="opt danger" data-off="${ai}"><span class="lbl">Scollega questo account</span></button></div>`}).join('');
+  return blocks+`<div class="opts">
+    <button class="opt" id="dbxMore">${ICON.cloud}<span class="lbl">Collega un altro account Dropbox</span></button>
+    ${SET.dbxFolders.length?`<button class="opt" id="dbxNow"><span class="lbl">Aggiorna ora</span></button>`:''}
     ${hiddenIds().length?`<button class="opt" id="dbxUnhide">${ICON.undo}<span class="lbl">Ripristina i brani eliminati</span><span class="hint">${hiddenIds().length}</span></button>`:''}
-    <div class="opt"><span class="lbl">Scarica i brani sul telefono<span class="s" style="display:block;margin-top:2px;white-space:normal">Si sentono anche senza internet, ma occupano spazio</span></span><button class="toggle" role="switch" id="tgKeep" aria-checked="${!!SET.dbxKeep}" aria-label="Scarica i brani sul telefono"></button></div>
-    <button class="opt danger" id="dbxOff"><span class="lbl">Scollega Dropbox</span></button></div>`}
+    <div class="opt"><span class="lbl">Scarica i brani sul telefono<span class="s" style="display:block;margin-top:2px;white-space:normal">Si sentono anche senza internet, ma occupano spazio</span></span><button class="toggle" role="switch" id="tgKeep" aria-checked="${!!SET.dbxKeep}" aria-label="Scarica i brani sul telefono"></button></div></div>
+    <p class="note">Puoi aggiungere più cartelle dallo stesso account e collegare altri account Dropbox: i brani finiscono tutti nella stessa libreria. Per un altro account Dropbox ti chiede di accedere di nuovo: entra con l'altro account.</p>`}
+async function dbxRemoveFolder(f){SET.dbxFolders=SET.dbxFolders.filter(x=>x!==f);saveSet();const k=fkey(f);
+  const left=SET.dbxFolders.some(x=>x.acct===f.acct);
+  await removeTracks(S.tracks.filter(t=>t.src==='dbx'&&(t.root===k||(!t.root&&!left&&acctFor(t)&&acctFor(t).id===f.acct))).map(t=>t.id),true)}
 function dbxSettingsMount(el){const g=k=>el.querySelector(k);
-  if(g('#dbxGo'))g('#dbxGo').onclick=()=>{closeSheet();dbxConnect()};
-  if(g('#dbxFolder'))g('#dbxFolder').onclick=()=>{closeSheet();setTimeout(()=>dbxFolderSheet(''),320)};
+  if(g('#dbxGo'))g('#dbxGo').onclick=()=>{closeSheet();dbxConnect(false)};
+  if(g('#dbxMore'))g('#dbxMore').onclick=()=>{closeSheet();dbxConnect(true)};
+  el.querySelectorAll('[data-relink]').forEach(b=>b.onclick=()=>{closeSheet();dbxConnect(true)});
+  el.querySelectorAll('[data-addf]').forEach(b=>b.onclick=()=>{const ac=accts[+b.dataset.addf];closeSheet();setTimeout(()=>dbxFolderSheet('',ac),320)});
+  el.querySelectorAll('[data-rmf]').forEach(b=>b.onclick=async()=>{const f=SET.dbxFolders[+b.dataset.rmf];if(!f)return;
+    if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Sicuro?';return}
+    closeSheet();await dbxRemoveFolder(f);toast(`Cartella "${f.name}" tolta dal player`)});
   if(g('#dbxNow'))g('#dbxNow').onclick=()=>{closeSheet();dbxSync(true)};
   if(g('#dbxUnhide'))g('#dbxUnhide').onclick=()=>{ls.del('sp-hidden');closeSheet();dbxSync(true)};
   if(g('#tgKeep'))g('#tgKeep').onclick=e=>{SET.dbxKeep=!SET.dbxKeep;saveSet();e.currentTarget.setAttribute('aria-checked',String(SET.dbxKeep));if(SET.dbxKeep)dbxKeepAll()};
-  const off=g('#dbxOff');if(off)off.onclick=async()=>{if(!off.dataset.armed){off.dataset.armed='1';off.querySelector('.lbl').textContent='Tocca di nuovo: i brani di Dropbox spariscono dal player';return}
-    closeSheet();try{await dbxFetch('https://api.dropboxapi.com/2/auth/token/revoke',{method:'POST'})}catch(e){}
-    dbx={};saveDbx();delete SET.dbxRoot;saveSet();await removeTracks(S.tracks.filter(t=>t.src==='dbx').map(t=>t.id),true);toast('Dropbox scollegato')}}
+  el.querySelectorAll('[data-off]').forEach(off=>off.onclick=async()=>{const ac=accts[+off.dataset.off];if(!ac)return;
+    if(!off.dataset.armed){off.dataset.armed='1';off.querySelector('.lbl').textContent='Tocca di nuovo: i brani di questo account spariscono dal player';return}
+    closeSheet();if(ac.refresh){try{await dbxFetch(ac,'https://api.dropboxapi.com/2/auth/token/revoke',{method:'POST'})}catch(e){}}
+    const first=accts[0]===ac;const ids=S.tracks.filter(t=>t.src==='dbx'&&(t.acct===ac.id||(!t.acct&&first)||(t.acct&&!acctById(t.acct)))).map(t=>t.id);
+    accts=accts.filter(x=>x!==ac);saveAccts();SET.dbxFolders=SET.dbxFolders.filter(f=>f.acct!==ac.id);saveSet();
+    await removeTracks(ids,true);toast(`Dropbox "${acctLabel(ac)}" scollegato`)})}
 
-async function dbxFolderSheet(path){let res;
-  openSheet(`<h2 class="sh-title">Cartella Dropbox</h2><p class="note">Carico le cartelle…</p>`);
-  try{res=await dbxApi('files/list_folder',{path,recursive:false,limit:2000})}catch(e){openSheet(`<h2 class="sh-title">Cartella Dropbox</h2><p class="note">Non riesco a leggere Dropbox. Controlla la connessione e riprova.</p>`);return}
-  let ents=res.entries;while(res.has_more){res=await dbxApi('files/list_folder/continue',{cursor:res.cursor});ents=ents.concat(res.entries)}
+async function dbxFolderSheet(path,ac){ac=ac||accts.find(a=>a.refresh);if(!ac){dbxConnect(false);return}let res;
+  const who=accts.length>1?`<p class="note" style="margin-top:-6px">${esc(acctLabel(ac))}</p>`:'';
+  openSheet(`<h2 class="sh-title">Cartella Dropbox</h2>${who}<p class="note">Carico le cartelle…</p>`);
+  try{res=await dbxApi(ac,'files/list_folder',{path,recursive:false,limit:2000});let ents=res.entries;while(res.has_more){res=await dbxApi(ac,'files/list_folder/continue',{cursor:res.cursor});ents=ents.concat(res.entries)}res.entries=ents}
+  catch(e){openSheet(`<h2 class="sh-title">Cartella Dropbox</h2>${who}<p class="note">Non riesco a leggere Dropbox. Controlla la connessione e riprova.</p>`);return}
+  const ents=res.entries;
   const dirs=ents.filter(e=>e['.tag']==='folder').sort((a,b)=>a.name.localeCompare(b.name,'it',{numeric:true,sensitivity:'base'}));
   const songs=ents.filter(e=>e['.tag']==='file'&&isAudio({name:e.name,type:''})).length;
-  const here=path?ents.length||true:false;const name=path?path.split('/').pop():'Dropbox';
-  openSheet(`<h2 class="sh-title">${esc(name)}</h2>
-    ${path?`<div class="opts"><button class="opt sel" id="useHere"><span class="lbl">Usa questa cartella</span><span class="hint">${songs?songs+' brani qui':''}</span></button></div>`:''}
-    ${dirs.length?`<div class="sec">${path?'Sottocartelle':'Scegli la cartella dei tuoi brani'}</div><div class="opts">${dirs.map((d,i)=>`<button class="opt" data-d="${i}">${ICON.folder}<span class="lbl">${esc(d.name)}</span><span aria-hidden="true">›</span></button>`).join('')}</div>`:`<p class="note">${path?'Nessuna sottocartella.':'Il tuo Dropbox non ha ancora cartelle. Dal Mac crea una cartella (per esempio "Studio") dentro Dropbox, mettici i brani e torna qui.'}</p>`}
+  const name=path?path.split('/').pop():'Dropbox';
+  const mine=SET.dbxFolders.filter(f=>f.acct===ac.id);const lp=path.toLowerCase();
+  const already=mine.find(f=>(f.path||'').toLowerCase()===lp);
+  const inside=!already&&mine.find(f=>f.path&&lp.startsWith(f.path.toLowerCase()+'/'));
+  const isOn=d=>mine.some(f=>(f.path||'').toLowerCase()===d.path_lower);
+  openSheet(`<h2 class="sh-title">${esc(name)}</h2>${who}
+    ${path?`<div class="opts">${already?`<div class="opt"><span class="lbl">Cartella già nel player</span><span aria-hidden="true">✓</span></div>`:inside?`<div class="opt"><span class="lbl">Già inclusa in "${esc(inside.name)}"</span><span aria-hidden="true">✓</span></div>`:`<button class="opt sel" id="useHere"><span class="lbl">Usa questa cartella</span><span class="hint">${songs?songs+' brani qui':''}</span></button>`}</div>`:''}
+    ${dirs.length?`<div class="sec">${path?'Sottocartelle':'Scegli la cartella dei tuoi brani'}</div><div class="opts">${dirs.map((d,i)=>`<button class="opt" data-d="${i}">${ICON.folder}<span class="lbl">${esc(d.name)}</span>${isOn(d)?'<span class="hint">nel player</span>':''}<span aria-hidden="true">›</span></button>`).join('')}</div>`:`<p class="note">${path?'Nessuna sottocartella.':'Questo Dropbox non ha ancora cartelle. Dal Mac crea una cartella (per esempio "Studio") dentro Dropbox, mettici i brani e torna qui.'}</p>`}
     ${path?`<div class="opts"><button class="opt" id="upDir"><span class="lbl">‹ Indietro</span></button></div>`:''}
-    <p class="note">Entrano tutti i brani della cartella, anche quelli nelle sottocartelle. Le cartelle condivise compaiono qui dopo averle aggiunte al tuo Dropbox.</p>`,
-  el=>{el.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>dbxFolderSheet(dirs[+b.dataset.d].path_lower));
-    const u=el.querySelector('#upDir');if(u)u.onclick=()=>dbxFolderSheet(path.split('/').slice(0,-1).join('/'));
-    const h=el.querySelector('#useHere');if(h)h.onclick=async()=>{let disp=path;try{const m=await dbxApi('files/get_metadata',{path});disp=m.path_display;SET.dbxRoot={id:m.id,path:m.path_lower,display:m.path_display,name:m.name}}catch(e){SET.dbxRoot={path,display:path,name}}
-      saveSet();closeSheet();dbxSync(true)}})}
+    <p class="note">Entrano tutti i brani della cartella, anche quelli nelle sottocartelle. Puoi aggiungere altre cartelle quando vuoi dalle impostazioni. Le cartelle condivise compaiono qui dopo averle aggiunte al tuo Dropbox.</p>`,
+  el=>{el.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>dbxFolderSheet(dirs[+b.dataset.d].path_lower,ac));
+    const u=el.querySelector('#upDir');if(u)u.onclick=()=>dbxFolderSheet(path.split('/').slice(0,-1).join('/'),ac);
+    const h=el.querySelector('#useHere');if(h)h.onclick=async()=>{let f;try{const m=await dbxApi(ac,'files/get_metadata',{path});f={acct:ac.id,id:m.id,path:m.path_lower,display:m.path_display,name:m.name}}catch(e){f={acct:ac.id,path,display:path,name}}
+      // se la nuova cartella contiene cartelle già aggiunte, quelle diventano superflue
+      const sub=SET.dbxFolders.filter(x=>x.acct===ac.id&&x.path&&x.path.toLowerCase().startsWith(f.path.toLowerCase()+'/'));
+      SET.dbxFolders=SET.dbxFolders.filter(x=>!sub.includes(x));SET.dbxFolders.push(f);saveSet();closeSheet();toast('Cartella aggiunta: '+f.name);dbxSync(true)}})}
 
 let dbxSyncing=false;
-function dbxFolderOf(e){const rootSeg=SET.dbxRoot.display.split('/').length;const segs=e.path_display.split('/');const mid=segs.slice(rootSeg,-1);return mid.length?mid.join('/'):SET.dbxRoot.name}
-async function dbxSync(manual){if(!dbx.refresh||!SET.dbxRoot||dbxSyncing)return;dbxSyncing=true;
+function dbxFolderOf(f,e){const rootSeg=(f.display||f.path).split('/').length;const segs=e.path_display.split('/');const mid=segs.slice(rootSeg,-1);return mid.length?mid.join('/'):f.name}
+async function dbxList(ac,f){let res=await dbxApi(ac,'files/list_folder',{path:f.id||f.path,recursive:true,limit:2000});let ents=res.entries;
+  while(res.has_more){res=await dbxApi(ac,'files/list_folder/continue',{cursor:res.cursor});ents=ents.concat(res.entries)}return ents}
+async function dbxSync(manual){if(dbxSyncing)return;
+  const live=SET.dbxFolders.filter(f=>{const a=acctById(f.acct);return a&&a.refresh});if(!live.length)return;dbxSyncing=true;
   const P=$('prog'),PT=$('progT'),PB=$('progBar');if(manual){P.hidden=false;PT.textContent='Controllo Dropbox…';PB.style.width='15%'}
-  try{let res=await dbxApi('files/list_folder',{path:SET.dbxRoot.id||SET.dbxRoot.path,recursive:true,limit:2000});let ents=res.entries;
-    while(res.has_more){res=await dbxApi('files/list_folder/continue',{cursor:res.cursor});ents=ents.concat(res.entries)}
-    const files=ents.filter(e=>e['.tag']==='file'&&e.is_downloadable!==false);
-    const aud=files.filter(e=>isAudio({name:e.name,type:''})),imgs=files.filter(e=>isImg({name:e.name,type:''}));
-    const seen=new Set();let added=0,updated=0;const fresh=[];
-    const hid=new Set(hiddenIds());
-    for(const e of aud){const id='dbx:'+e.id;if(hid.has(id))continue;seen.add(id);const folder=dbxFolderOf(e);let t=S.byId.get(id);
-      if(!t){t={id,src:'dbx',dbxId:e.id,hash:e.content_hash,path:e.path_display,name:clean(e.name),file:e.name,folder,size:e.size,added:Date.parse(e.server_modified)||Date.now(),plays:0,fav:false,info:{fmt:extOf(e.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(e.name))}};
-        S.tracks.push(t);S.byId.set(id,t);added++;fresh.push(t);await saveTrack(t)}
-      else{let ch=false;if(t.hash!==e.content_hash){t.hash=e.content_hash;t.size=e.size;t.file=e.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(e.name).toUpperCase()};delete tempLinks[id];
-          await cacheDel(id);if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
-        if(t.path!==e.path_display||t.folder!==folder){t.path=e.path_display;t.folder=folder;ch=true}
-        if(ch)await saveTrack(t)}}
-    const gone=S.tracks.filter(t=>t.src==='dbx'&&!seen.has(t.id)).map(t=>t.id);
+  try{const seen=new Set(),okKeys=new Set(),fails=[];let added=0,updated=0,nAud=0;const fresh=[];const hid=new Set(hiddenIds());let fi=0;
+    for(const f of live){const ac=acctById(f.acct),k=fkey(f);if(manual)PB.style.width=(15+70*fi++/live.length)+'%';
+      let ents;try{ents=await dbxList(ac,f)}catch(e){fails.push({f,e});continue}
+      okKeys.add(k);
+      const files=ents.filter(e=>e['.tag']==='file'&&e.is_downloadable!==false);
+      const aud=files.filter(e=>isAudio({name:e.name,type:''})),imgs=files.filter(e=>isImg({name:e.name,type:''}));nAud+=aud.length;
+      for(const e of aud){const id='dbx:'+e.id;if(hid.has(id)||seen.has(id))continue;seen.add(id);const folder=dbxFolderOf(f,e);let t=S.byId.get(id);
+        if(!t){t={id,src:'dbx',acct:ac.id,root:k,dbxId:e.id,hash:e.content_hash,path:e.path_display,name:clean(e.name),file:e.name,folder,size:e.size,added:Date.parse(e.server_modified)||Date.now(),plays:0,fav:false,info:{fmt:extOf(e.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(e.name))}};
+          S.tracks.push(t);S.byId.set(id,t);added++;fresh.push(t);await saveTrack(t)}
+        else{let ch=false;if(t.hash!==e.content_hash){t.hash=e.content_hash;t.size=e.size;t.file=e.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(e.name).toUpperCase()};delete tempLinks[id];
+            await cacheDel(id);if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
+          if(t.path!==e.path_display||t.folder!==folder||t.acct!==ac.id||t.root!==k){if(t.acct!==ac.id)delete tempLinks[id];t.path=e.path_display;t.folder=folder;t.acct=ac.id;t.root=k;ch=true}
+          if(ch)await saveTrack(t)}}
+      const byF={};imgs.forEach(e=>{const fo=dbxFolderOf(f,e);(byF[fo]=byF[fo]||[]).push(e)});
+      for(const[fo,list]of Object.entries(byF)){const pick=list.find(x=>/^(cover|folder|artwork|front|copertina|album)\b/i.test(x.name))||list[0];
+        if(S.covers[fo]&&ls.get('sp-cvh:'+fo)===pick.content_hash)continue;
+        try{const d=await imgToData(await dbxDownload(ac,pick.id));if(d){S.covers[fo]=d;await idb.put('meta',d,'cover:'+fo);ls.set('sp-cvh:'+fo,pick.content_hash)}}catch(e){}}}
+    const keys=new Set(SET.dbxFolders.map(fkey));
+    // tolgo solo i brani spariti da cartelle lette senza errori (o di cartelle/account non più collegati)
+    const gone=S.tracks.filter(t=>t.src==='dbx'&&!seen.has(t.id)&&(t.root?(okKeys.has(t.root)||!keys.has(t.root)):!fails.length)).map(t=>t.id);
     if(gone.length)await removeTracks(gone,true);
     if(own().length&&S.tracks.some(t=>t.demo)){if(S.byId.get(S.curId)?.demo){audio.pause();S.curId=null;$('mini').hidden=true}S.tracks=S.tracks.filter(t=>!t.demo);S.byId=new Map(S.tracks.map(t=>[t.id,t]))}
-    const byF={};imgs.forEach(e=>{const f=dbxFolderOf(e);(byF[f]=byF[f]||[]).push(e)});
-    for(const[f,list]of Object.entries(byF)){const pick=list.find(x=>/^(cover|folder|artwork|front|copertina|album)\b/i.test(x.name))||list[0];
-      if(S.covers[f]&&ls.get('sp-cvh:'+f)===pick.content_hash)continue;
-      try{const d=await imgToData(await dbxDownload(pick.id));if(d){S.covers[f]=d;await idb.put('meta',d,'cover:'+f);ls.set('sp-cvh:'+f,pick.content_hash)}}catch(e){}}
-    ls.set('sp-dbx-last',String(Date.now()));render();if(S.curId)updateNow();
+    if(okKeys.size)ls.set('sp-dbx-last',String(Date.now()));render();if(S.curId)updateNow();
     const parts=[];if(added)parts.push(added===1?'1 brano nuovo':`${added} brani nuovi`);if(updated)parts.push(updated===1?'1 aggiornato':`${updated} aggiornati`);if(gone.length)parts.push(`${gone.length} tolti`);
-    if(parts.length)toast('Dropbox: '+parts.join(' · '),3200);else if(manual)toast(aud.length?'Dropbox: tutto aggiornato':`Nella cartella "${SET.dbxRoot.name}" non ci sono ancora brani`,3200);
+    const miss=fails.filter(x=>x.e&&x.e.status===409);
+    if(miss.length)toast(`Non trovo più ${miss.length===1?'la cartella "'+miss[0].f.name+'"':miss.length+' cartelle'} su Dropbox: controlla nelle impostazioni`,4500);
+    else if(fails.length&&(manual||fails.some(x=>x.e.message!=='nolink'))&&!okKeys.size)toast('Dropbox non risponde: riprovo quando riapri il player',3500);
+    else if(parts.length)toast('Dropbox: '+parts.join(' · '),3200);
+    else if(manual)toast(nAud?'Dropbox: tutto aggiornato':live.length===1?`Nella cartella "${live[0].name}" non ci sono ancora brani`:'Nelle cartelle Dropbox non ci sono ancora brani',3200);
+    if(!miss.length&&parts.length&&fails.length&&manual)toast('Dropbox: '+parts.join(' · ')+' (una cartella non ha risposto)',3600);
     dbxDetails(fresh);if(SET.dbxKeep)dbxKeepAll();if(SET.autoDedupe!==false)setTimeout(()=>dedupe(true).then(n=>{if(n)toast(n===1?'1 doppione nascosto':`${n} doppioni nascosti`)}),1200)}
-  catch(e){if(e&&e.status===409){toast(`Non trovo più la cartella "${SET.dbxRoot.name}" su Dropbox: sceglila di nuovo dalle impostazioni`,4500)}else if(manual||e.message!=='nolink')toast('Dropbox non risponde: riprovo quando riapri il player',3500)}
+  catch(e){if(manual)toast('Dropbox non risponde: riprovo quando riapri il player',3500)}
   finally{dbxSyncing=false;setTimeout(()=>{P.hidden=true},300)}}
 async function dbxDetails(list){const q=list.filter(t=>t.src!=='gd'&&/^wav/.test(extOf(t.file))&&!t.duration);let i=0;
   const work=async()=>{while(i<q.length){const t=q[i++];try{const w=await parseWav(remoteBlob(t));if(w&&S.byId.has(t.id)){t.duration=w.duration;t.info={fmt:'WAV',bits:w.bits,rate:w.rate,ch:w.ch,float:w.tag===3,lossless:true};await saveTrack(t)}}catch(e){}}};
@@ -1275,11 +1334,11 @@ document.addEventListener('dragenter',e=>{if([...(e.dataTransfer?.types||[])].in
 document.addEventListener('dragleave',()=>{dragN=Math.max(0,dragN-1);if(!dragN)$('drop').hidden=true});
 document.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files'))e.preventDefault()});
 document.addEventListener('drop',async e=>{if(!e.dataTransfer||!e.dataTransfer.files.length)return;e.preventDefault();dragN=0;$('drop').hidden=true;importEntries(await entriesFromDrop(e.dataTransfer))});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();else{if(dbx.refresh&&SET.dbxRoot&&Date.now()-(+ls.get('sp-dbx-last')||0)>60000)dbxSync(false);if(SET.gdRoot&&Date.now()-(+ls.get('sp-gd-last')||0)>60000)gdSync(false)}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();else{if(dbxOn()&&SET.dbxFolders.length&&Date.now()-(+ls.get('sp-dbx-last')||0)>60000)dbxSync(false);if(SET.gdRoot&&Date.now()-(+ls.get('sp-gd-last')||0)>60000)gdSync(false)}});
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010010706';
+const APP_VER='20261010011606';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
