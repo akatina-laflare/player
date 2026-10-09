@@ -634,16 +634,37 @@ function warmLinks(ids){for(const id of ids){const t=S.byId.get(id);if(t&&t.src=
       try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks()}catch(e){break}}}
     finally{warming=false}})()}
 const preAudio=new Audio();preAudio.preload='auto';preAudio.muted=true;
-/* scarica in sottofondo il brano successivo (un solo download), così parte subito */
-let prefetching=null;
-function trimUrls(){const keep=new Set([S.curId,prefetching,S.up[0]||S.ctx[S.pos+1]]);const ks=Object.keys(urls).filter(k=>!keep.has(k));
+/* memoria veloce: i brani preparati restano sul telefono fino al limite scelto, poi si cancellano i meno recenti */
+const CACHE_OPTS=[[0,'Spenta'],[512,'500 MB'],[1024,'1 GB'],[2048,'2 GB'],[4096,'4 GB']];
+const cacheLimit=()=>(SET.cacheMB==null?1024:SET.cacheMB)*1048576;
+let cacheIdx=(()=>{try{return JSON.parse(ls.get('sp-cache')||'{}')}catch(e){return{}}})();
+const saveCacheIdx=()=>ls.set('sp-cache',JSON.stringify(cacheIdx));
+const cacheUsed=()=>Object.values(cacheIdx).reduce((a,c)=>a+(c.size||0),0);
+async function cacheGet(id){if(!cacheIdx[id])return null;const b=await idb.get('blobs','c:'+id);if(!b){delete cacheIdx[id];saveCacheIdx();return null}cacheIdx[id].at=Date.now();saveCacheIdx();return b}
+async function cacheDel(id){if(!cacheIdx[id])return;delete cacheIdx[id];saveCacheIdx();await idb.del('blobs','c:'+id)}
+async function cachePut(id,b){const lim=cacheLimit();if(!lim||b.size>lim)return false;
+  const keep=new Set([S.curId,...upcoming(3)]);
+  const order=Object.entries(cacheIdx).sort((a,b)=>a[1].at-b[1].at);let used=cacheUsed();
+  for(const[k]of order){if(used+b.size<=lim)break;if(keep.has(k))continue;used-=cacheIdx[k].size||0;await cacheDel(k)}
+  if(used+b.size>lim)return false;
+  const ok=await idb.put('blobs',b,'c:'+id);if(ok){cacheIdx[id]={size:b.size,at:Date.now()};saveCacheIdx();askPersist()}return ok}
+async function cacheTrim(){const lim=cacheLimit();const order=Object.entries(cacheIdx).sort((a,b)=>a[1].at-b[1].at);let used=cacheUsed();
+  for(const[k]of order){if(used<=lim)break;used-=cacheIdx[k].size||0;await cacheDel(k)}}
+function upcoming(n){const out=[...S.up];for(let i=S.pos+1;i<S.ctx.length&&out.length<n;i++)out.push(S.ctx[i]);
+  if(out.length<n&&S.repeat==='all')for(let i=0;i<S.ctx.length&&out.length<n;i++)out.push(S.ctx[i]);return out.slice(0,n).filter(id=>id&&id!==S.curId)}
+let prefetching=null,prefetchRun=0;
+function trimUrls(){const keep=new Set([S.curId,...upcoming(2)]);const ks=Object.keys(urls).filter(k=>!keep.has(k));
   while(ks.length>1){const k=ks.shift();URL.revokeObjectURL(urls[k]);delete urls[k];delete shareBlobs[k]}}
-async function preloadNext(){const id=S.up[0]||S.ctx[S.pos+1];const t=id&&S.byId.get(id);if(!t||!isCloud(t)||t.offline||urls[id]||prefetching===id)return;
-  if(navigator.connection&&navigator.connection.saveData)return;
-  prefetching=id;
-  try{const b=await cloudBlob(t);if(S.byId.has(id)&&!urls[id]){urls[id]=URL.createObjectURL(typed(b,t.file));shareBlobs[id]=b}}catch(e){}
-  finally{if(prefetching===id)prefetching=null;trimUrls()}}
-async function srcFor(t){if(t.src==='gd'&&!urls[t.id]){const off=await idb.get('blobs',t.id);if(!off)return gdUrl(t)}
+async function preloadNext(){const run=++prefetchRun;
+  for(const id of upcoming(2)){if(run!==prefetchRun)return;const t=S.byId.get(id);if(!t||!isCloud(t)||t.offline||urls[id]||cacheIdx[id])continue;
+    prefetching=id;
+    try{const b=await cloudBlob(t);if(!S.byId.has(id))continue;
+      if(!(await cachePut(id,b))&&!urls[id]&&id===upcoming(1)[0]){urls[id]=URL.createObjectURL(typed(b,t.file));shareBlobs[id]=b}}
+    catch(e){break}
+    finally{if(prefetching===id)prefetching=null}}
+  trimUrls()}
+async function srcFor(t){if(isCloud(t)&&!urls[t.id]&&!t.offline){const c=await cacheGet(t.id);if(c){urls[t.id]=URL.createObjectURL(typed(c,t.file));shareBlobs[t.id]=c;return urls[t.id]}}
+  if(t.src==='gd'&&!urls[t.id]){const off=await idb.get('blobs',t.id);if(!off)return gdUrl(t)}
   if(t.src==='dbx'&&!urls[t.id]){const off=await idb.get('blobs',t.id);
     if(!off){const c=tempLinks[t.id];if(c&&c.exp>Date.now())return c.url;
       try{const r=await dbxApi('files/get_temporary_link',{path:t.dbxId});tempLinks[t.id]={url:r.link,exp:Date.now()+3.5*3600e3};saveLinks();return r.link}
@@ -839,7 +860,7 @@ function refreshArt(t){render();if(t.id===S.curId){updateNow();setMedia(t)}}
 async function removeTracks(ids,quiet){for(const id of ids){const t=S.byId.get(id);if(!t)continue;
     if(id===S.curId){audio.pause();audio.removeAttribute('src');audio.load();S.curId=null;$('mini').hidden=true;closeNp();ls.del('sp-resume')}
     if(urls[id]){URL.revokeObjectURL(urls[id]);delete urls[id]}
-    if(!t.demo){await idb.del('blobs',id);await idb.del('tracks',id)}ls.del('sp-notes:'+id);
+    if(!t.demo){await idb.del('blobs',id);await idb.del('tracks',id);await cacheDel(id)}ls.del('sp-notes:'+id);
     S.tracks=S.tracks.filter(x=>x.id!==id);S.byId.delete(id);S.ctx=S.ctx.filter(x=>x!==id);S.up=S.up.filter(x=>x!==id)}
   if(S.tab==='folder'&&!lib().some(t=>t.folder===S.folder)){S.tab='folders';S.folder=null}
   if(!own().length&&!S.tracks.length){S.tracks=DEMOS.map(d=>({...d}));S.byId=new Map(S.tracks.map(t=>[t.id,t]))}
@@ -884,6 +905,10 @@ async function settingsSheet(){
     <p class="note">Se nella cartella c'è un'immagine (per esempio cover.jpg) diventa la copertina di tutti i brani della cartella. Puoi sempre cambiarla dal menu ··· di un brano o di una cartella.</p>
     <div class="sec">Libreria</div>
     <div class="opts"><div class="opt"><span class="lbl">Mostra formato e qualità</span><button class="toggle" role="switch" id="tgTech" aria-checked="${SET.tech}" aria-label="Mostra formato e qualità"></button></div></div>
+    <div class="sec">Ascolto veloce</div>
+    <div class="segs" id="cacheSeg">${CACHE_OPTS.map(([v,l])=>`<button data-mb="${v}" aria-pressed="${(SET.cacheMB==null?1024:SET.cacheMB)===v}">${l}</button>`).join('')}</div>
+    <div class="opts"><div class="opt"><span class="lbl">Brani pronti sul telefono<span class="s" style="display:block;margin-top:2px">${Object.keys(cacheIdx).length} brani · ${fmtSize(cacheUsed())}</span></span>${Object.keys(cacheIdx).length?'<button class="acc" id="cacheClr" style="font-size:15px">Svuota</button>':''}</div></div>
+    <p class="note">Il player prepara i 2 brani successivi mentre ascolti e tiene quelli già preparati, così partono subito. Quando la memoria è piena cancella da solo i meno ascoltati di recente. I file su Drive e Dropbox non vengono toccati.</p>
     <div class="sec">Spazio sul telefono</div>
     <div class="opts"><div class="opt"><span class="lbl">${mine.length} ${mine.length===1?'brano':'brani'} · ${fmtSize(mine.reduce((s,t)=>s+(t.size||0),0))}${est?`<span class="s" style="display:block;margin-top:2px">${esc(est)}</span>`:''}</span></div>
       ${pers===false?`<button class="opt" id="persist"><span class="lbl">Proteggi i brani dalla pulizia automatica</span></button>`:pers?`<div class="opt"><span class="lbl">Brani protetti dalla pulizia automatica</span><span aria-hidden="true">✓</span></div>`:''}</div>
@@ -896,6 +921,8 @@ async function settingsSheet(){
     el.querySelector('#tgTech').onclick=e=>{SET.tech=!SET.tech;saveSet();applySettings();e.currentTarget.setAttribute('aria-checked',String(SET.tech));render()};
     const p=el.querySelector('#persist');if(p)p.onclick=async()=>{let ok=false;try{ok=await navigator.storage.persist()}catch(e){}toast(ok?'Brani protetti':'Il browser non lo permette qui: aggiungi il player alla schermata Home');if(ok)settingsSheet()};
     dbxSettingsMount(el);gdSettingsMount(el);
+    el.querySelectorAll('#cacheSeg button').forEach(b=>b.onclick=async()=>{SET.cacheMB=+b.dataset.mb;saveSet();el.querySelectorAll('#cacheSeg button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));await cacheTrim();if(SET.cacheMB)preloadNext()});
+    const cc=el.querySelector('#cacheClr');if(cc)cc.onclick=async()=>{for(const k of Object.keys(cacheIdx))await cacheDel(k);closeSheet();toast('Memoria svuotata')};
     const dd=el.querySelector('#dedupe');if(dd)dd.onclick=()=>{closeSheet();dedupe(false)};
     const w=el.querySelector('#wipe');if(w)w.onclick=()=>{if(!w.dataset.armed){w.dataset.armed='1';w.querySelector('.lbl').textContent=`Tocca di nuovo per rimuovere ${mine.length} brani`;return}closeSheet();const loc=mine.filter(t=>!isCloud(t));removeTracks(loc.map(t=>t.id),true);mine.filter(t=>isCloud(t)).forEach(t=>dbxUnkeep(t,true));toast('Brani rimossi dal telefono')}})}
 
@@ -1001,7 +1028,7 @@ async function gdSync(manual){if(!GD_KEY||!SET.gdRoot||gdSyncing)return;gdSyncin
     for(const x of aud){const id='gd:'+x.id;if(hid.has(id))continue;seen.add(id);const folder=folderOf(x),hash=x.md5Checksum||x.modifiedTime;let t=S.byId.get(id);
       if(!t){t={id,src:'gd',gdId:x.id,hash,name:clean(x.name),file:x.name,folder,size:+x.size||0,added:Date.parse(x.createdTime)||Date.now(),plays:0,fav:false,info:{fmt:extOf(x.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(x.name))}};
         S.tracks.push(t);S.byId.set(id,t);added++;fresh.push(t);await saveTrack(t)}
-      else{let ch=false;if(t.hash!==hash){t.hash=hash;t.size=+x.size||0;t.file=x.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(x.name).toUpperCase()};if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
+      else{let ch=false;if(t.hash!==hash){t.hash=hash;t.size=+x.size||0;t.file=x.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(x.name).toUpperCase()};await cacheDel(id);if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
         if(t.folder!==folder){t.folder=folder;ch=true}if(ch)await saveTrack(t)}}
     const gone=S.tracks.filter(t=>t.src==='gd'&&!seen.has(t.id)).map(t=>t.id);if(gone.length)await removeTracks(gone,true);
     if(own().length&&S.tracks.some(t=>t.demo)){if(S.byId.get(S.curId)?.demo){audio.pause();S.curId=null;$('mini').hidden=true}S.tracks=S.tracks.filter(t=>!t.demo);S.byId=new Map(S.tracks.map(t=>[t.id,t]))}
@@ -1104,7 +1131,7 @@ async function dbxSync(manual){if(!dbx.refresh||!SET.dbxRoot||dbxSyncing)return;
       if(!t){t={id,src:'dbx',dbxId:e.id,hash:e.content_hash,path:e.path_display,name:clean(e.name),file:e.name,folder,size:e.size,added:Date.parse(e.server_modified)||Date.now(),plays:0,fav:false,info:{fmt:extOf(e.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(e.name))}};
         S.tracks.push(t);S.byId.set(id,t);added++;fresh.push(t);await saveTrack(t)}
       else{let ch=false;if(t.hash!==e.content_hash){t.hash=e.content_hash;t.size=e.size;t.file=e.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(e.name).toUpperCase()};delete tempLinks[id];
-          if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
+          await cacheDel(id);if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
         if(t.path!==e.path_display||t.folder!==folder){t.path=e.path_display;t.folder=folder;ch=true}
         if(ch)await saveTrack(t)}}
     const gone=S.tracks.filter(t=>t.src==='dbx'&&!seen.has(t.id)).map(t=>t.id);
