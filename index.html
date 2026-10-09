@@ -663,7 +663,15 @@ async function load(id,autoplay,at=0){const t=S.byId.get(id);if(!t)return;const 
     else if(isCloud(t)&&/^wav/.test(extOf(t.file))&&!t.duration){const rb=remoteBlob(t);const w=await parseWav(rb);if(w){t.duration=w.duration;saveTrack(t)}}
     if(p&&S.byId.has(t.id)){t.peaks=p;saveTrack(t);if(S.curId===t.id)drawWave()}}}
 function playError(t){const i=t.info||{};toast(i.float&&i.bits===64?'Questo WAV è a 64-bit float: riesportalo da Logic a 24-bit':`Non riesco a riprodurre "${t.name}". Prova a riesportarlo da Logic in WAV 24-bit o AAC`,4500)}
-audio.addEventListener('error',()=>{const t=S.byId.get(S.curId);if(t&&audio.src)playError(t)});
+const fellBack=new Set();
+audio.addEventListener('error',async()=>{const t=S.byId.get(S.curId);if(!t||!audio.src)return;
+  if(isCloud(t)&&!fellBack.has(t.id)&&!audio.src.startsWith('blob:')){fellBack.add(t.id);const id=t.id,at=audio.currentTime||0;
+    toast('Carico "'+t.name+'"…',15000);
+    try{const b=await cloudBlob(t);if(S.curId!==id)return;urls[id]=URL.createObjectURL(typed(b,t.file));shareBlobs[id]=b;audio.src=urls[id];
+      if(at)audio.addEventListener('loadedmetadata',()=>{try{audio.currentTime=at}catch(e){}},{once:true});await audio.play();toast('In riproduzione',1200)}
+    catch(e){toast(navigator.onLine===false?'Serve internet per questo brano':'Non riesco a caricare "'+t.name+'": riprova tra poco',4000)}
+    return}
+  playError(t)});
 function toggle(){if(!S.curId){const v=S.visible.length?S.visible:lib().map(t=>t.id);if(v.length)startContext(v,S.shuffle?v[Math.floor(Math.random()*v.length)]:v[0],$('h1').textContent);return}
   if(audio.paused){if(!audio.src){load(S.curId,true,lastPos);return}audio.play().catch(()=>{})}else audio.pause()}
 function next(auto){
