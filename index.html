@@ -652,13 +652,14 @@ async function cacheTrim(){const lim=cacheLimit();const order=Object.entries(cac
   for(const[k]of order){if(used<=lim)break;used-=cacheIdx[k].size||0;await cacheDel(k)}}
 function upcoming(n){const out=[...S.up];for(let i=S.pos+1;i<S.ctx.length&&out.length<n;i++)out.push(S.ctx[i]);
   if(out.length<n&&S.repeat==='all')for(let i=0;i<S.ctx.length&&out.length<n;i++)out.push(S.ctx[i]);return out.slice(0,n).filter(id=>id&&id!==S.curId)}
-let prefetching=null,prefetchRun=0;
+let prefetching=null,prefetchRun=0;const inflight={};
+function cloudBlobOnce(t){if(!inflight[t.id])inflight[t.id]=cloudBlob(t).finally(()=>{setTimeout(()=>{delete inflight[t.id]},0)});return inflight[t.id]}
 function trimUrls(){const keep=new Set([S.curId,...upcoming(2)]);const ks=Object.keys(urls).filter(k=>!keep.has(k));
   while(ks.length>1){const k=ks.shift();URL.revokeObjectURL(urls[k]);delete urls[k];delete shareBlobs[k]}}
 async function preloadNext(){const run=++prefetchRun;
   for(const id of upcoming(2)){if(run!==prefetchRun)return;const t=S.byId.get(id);if(!t||!isCloud(t)||t.offline||urls[id]||cacheIdx[id])continue;
     prefetching=id;
-    try{const b=await cloudBlob(t);if(!S.byId.has(id))continue;
+    try{const b=await cloudBlobOnce(t);if(!S.byId.has(id))continue;
       if(!(await cachePut(id,b))&&!urls[id]&&id===upcoming(1)[0]){urls[id]=URL.createObjectURL(typed(b,t.file));shareBlobs[id]=b}}
     catch(e){break}
     finally{if(prefetching===id)prefetching=null}}
@@ -682,7 +683,7 @@ async function load(id,autoplay,at=0){const t=S.byId.get(id);if(!t)return;const 
   if(src==='__fail')return;
   if(audio.src===src&&autoplay){audio.play().catch(()=>{});return}
   if(!src){toast('Questo brano non è più salvato sul dispositivo: aggiungilo di nuovo');return}
-  audio.src=src;audio.playbackRate=S.speed;setTimeout(preloadNext,2500);if(at)audio.addEventListener('loadedmetadata',()=>{try{audio.currentTime=at}catch(e){}},{once:true});
+  audio.src=src;audio.playbackRate=S.speed;setTimeout(preloadNext,400);if(S.curId===id)$('miniS').textContent=lastSeg(t.folder);if(at)audio.addEventListener('loadedmetadata',()=>{try{audio.currentTime=at}catch(e){}},{once:true});
   if(autoplay){try{await audio.play()}catch(e){if(e&&e.name!=='AbortError'&&e.name!=='NotAllowedError'){if(isCloud(t)&&!audio.src.startsWith('blob:'))cloudFallback(t);else playError(t)}}}
   if(isCloud(t)&&!audio.src.startsWith('blob:')){const id=t.id;setTimeout(()=>{if(S.curId===id&&!audio.src.startsWith('blob:')&&audio.readyState<2&&!audio.paused)cloudFallback(t)},9000)}
   setMedia(t);
@@ -694,7 +695,7 @@ function playError(t){const i=t.info||{};toast(i.float&&i.bits===64?'Questo WAV 
 const fellBack=new Set();
 async function cloudFallback(t){if(fellBack.has(t.id))return false;fellBack.add(t.id);const id=t.id,at=audio.currentTime||0;
   toast('Carico "'+t.name+'"…',20000);
-  try{const b=await cloudBlob(t);if(S.curId!==id)return true;urls[id]=URL.createObjectURL(typed(b,t.file));shareBlobs[id]=b;audio.src=urls[id];
+  try{const b=await cloudBlobOnce(t);if(S.curId!==id)return true;urls[id]=URL.createObjectURL(typed(b,t.file));shareBlobs[id]=b;audio.src=urls[id];
     if(at)audio.addEventListener('loadedmetadata',()=>{try{audio.currentTime=at}catch(e){}},{once:true});
     try{await audio.play()}catch(e){}toast(audio.paused?'Pronto: tocca play':'In riproduzione',1500)}
   catch(e){toast(navigator.onLine===false?'Serve internet per questo brano':t.src==='gd'?'Google Drive ha bloccato per un po\' la tua rete: riprova più tardi o con i dati mobili':'Non riesco a caricare "'+t.name+'": riprova tra poco',5000)}
@@ -704,7 +705,7 @@ audio.addEventListener('error',()=>{const t=S.byId.get(S.curId);if(!t||!audio.sr
   playError(t)});
 function toggle(){if(!S.curId){const v=S.visible.length?S.visible:lib().map(t=>t.id);if(v.length)startContext(v,S.shuffle?v[Math.floor(Math.random()*v.length)]:v[0],$('h1').textContent);return}
   if(audio.paused){if(!audio.src){load(S.curId,true,lastPos);return}audio.play().catch(()=>{})}else audio.pause()}
-function next(auto){setTimeout(preloadNext,3000);
+function next(auto){setTimeout(preloadNext,600);
   if(S.up.length){const id=S.up.shift();load(id,true);return}
   if(!S.ctx.length)return;let p=S.pos+1;
   if(p>=S.ctx.length){if(S.repeat==='all'){if(S.shuffle)S.ctx=shuffled(S.ctxBase||S.ctx);p=0}else{if(auto){audio.pause();audio.currentTime=0}else{S.pos=S.ctx.length-1;audio.currentTime=0;audio.pause()}return}}
@@ -894,6 +895,7 @@ async function settingsSheet(){
   openSheet(`<h2 class="sh-title">Impostazioni</h2>
     <div class="opts"><button class="opt${nDup?' danger':''}" id="dedupe" ${nDup?'':'disabled'}>${ICON.trash}<span class="lbl">Rimuovi i doppioni</span><span class="hint">${nDup?nDup:'nessuno'}</span></button></div>
     <div class="sec">Google Drive</div>
+    ${SET.gdRoot?'<p class="note" id="gdStatus">Controllo la connessione con Drive…</p>':''}
     ${gdSettingsHTML()}
     <div class="sec">Dropbox</div>
     ${dbxSettingsHTML()}
@@ -921,6 +923,8 @@ async function settingsSheet(){
     el.querySelector('#tgTech').onclick=e=>{SET.tech=!SET.tech;saveSet();applySettings();e.currentTarget.setAttribute('aria-checked',String(SET.tech));render()};
     const p=el.querySelector('#persist');if(p)p.onclick=async()=>{let ok=false;try{ok=await navigator.storage.persist()}catch(e){}toast(ok?'Brani protetti':'Il browser non lo permette qui: aggiungi il player alla schermata Home');if(ok)settingsSheet()};
     dbxSettingsMount(el);gdSettingsMount(el);
+    const gst=el.querySelector('#gdStatus');if(gst){const t=S.tracks.find(x=>x.src==='gd');const t0=Date.now();
+      (t?fetch(gdUrl(t),{headers:{Range:'bytes=0-1'}}).then(r=>{if(!r.ok&&r.status!==206)throw 0}):Promise.reject()).then(()=>{gst.textContent=`Drive risponde (${Date.now()-t0} ms): i brani si preparano normalmente.`},()=>{gst.textContent=t?'Drive al momento non risponde da questa rete (blocco temporaneo di Google). Con i dati mobili dovrebbe funzionare; il blocco passa da solo.':''})}
     el.querySelectorAll('#cacheSeg button').forEach(b=>b.onclick=async()=>{SET.cacheMB=+b.dataset.mb;saveSet();el.querySelectorAll('#cacheSeg button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));await cacheTrim();if(SET.cacheMB)preloadNext()});
     const cc=el.querySelector('#cacheClr');if(cc)cc.onclick=async()=>{for(const k of Object.keys(cacheIdx))await cacheDel(k);closeSheet();toast('Memoria svuotata')};
     const dd=el.querySelector('#dedupe');if(dd)dd.onclick=()=>{closeSheet();dedupe(false)};
