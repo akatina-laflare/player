@@ -47,6 +47,11 @@ button:disabled{opacity:.4;cursor:default}
 svg{display:block;flex:none}
 
 .wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:6px 130px}
+.navbar{position:fixed;left:0;right:0;top:0;z-index:6;padding:env(safe-area-inset-top,0px) 12px 0;background:var(--glass);backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);border-bottom:1px solid var(--line);transform:translateY(-100%);opacity:0;transition:transform .25s ease,opacity .2s ease;pointer-events:none}
+.navbar.show{transform:none;opacity:1;pointer-events:auto}
+.nav-in{max-width:720px;margin:0 auto;height:48px;display:flex;align-items:center;gap:4px}
+.nav-t{flex:1;min-width:0;text-align:center;font-weight:600;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px}
+.nav-in>.top-btns{flex:none}
 .top{display:flex;flex-direction:column;gap:2px;padding-block:14px 8px}
 .back{display:flex;align-items:center;gap:2px;color:var(--accent);font-size:16px;padding:4px 0;align-self:flex-start}
 .top-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -258,6 +263,16 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 @media (prefers-reduced-motion: reduce){.list.anim .row,.grid.anim .card,.pop,.big.swap,.mini.enter,.toast.show{animation:none}.np,.big,.sheet,.scrim{transition:none}.bars i{animation:none;height:12px}}
 </style>
 
+<div class="navbar" id="navbar" aria-hidden="true">
+  <div class="nav-in">
+    <button class="ib acc" id="navBack" aria-label="Indietro" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+    <span class="nav-t" id="navT">Libreria</span>
+    <div class="top-btns">
+      <button class="ib acc" id="navSet" aria-label="Impostazioni"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></button>
+      <button class="ib acc" id="navAdd" aria-label="Aggiungi brani"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+  </div>
+</div>
 <div class="wrap">
   <header class="top">
     <button class="back" id="back" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Cartelle</button>
@@ -610,7 +625,7 @@ function render(){
   const view=S.tab+'|'+(S.folder||'')+'|'+SET.sort;const animate=view!==lastView;lastView=view;
   document.querySelectorAll('#seg button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===S.tab||(inFolder&&b.dataset.tab==='folders'))));
   $('seg').hidden=inFolder;$('back').hidden=!inFolder;$('folderMore').hidden=!inFolder;
-  $('h1').textContent=inFolder?lastSeg(S.folder):S.tab==='favs'?'Preferiti':S.tab==='folders'?'Cartelle':'Libreria';
+  $('h1').textContent=inFolder?lastSeg(S.folder):S.tab==='favs'?'Preferiti':S.tab==='folders'?'Cartelle':'Libreria';$('navT').textContent=$('h1').textContent;$('navBack').hidden=!inFolder;
   $('sortL').textContent=SORTS[SET.sort];
   const L=$('list'),G=$('grid'),E=$('emptyBox'),FH=$('fhead');E.innerHTML='';
   const mine=own();
@@ -1211,6 +1226,9 @@ async function dbxKeepAll(){if(keepBusy)return;keepBusy=true;try{const q=S.track
 
 /* ================= eventi ================= */
 $('seg').onclick=e=>{const b=e.target.closest('button[data-tab]');if(!b)return;S.tab=b.dataset.tab;S.folder=null;render();window.scrollTo(0,0)};
+$('navSet').onclick=settingsSheet;$('navAdd').onclick=addSheet;$('navBack').onclick=()=>$('back').click();
+(()=>{const nb=$('navbar');let on=false;const upd=()=>{const v=window.scrollY>70;if(v!==on){on=v;nb.classList.toggle('show',v);nb.setAttribute('aria-hidden',String(!v))}};
+  window.addEventListener('scroll',upd,{passive:true});upd()})();
 $('back').onclick=()=>{S.tab='folders';S.folder=null;render()};
 $('folderMore').onclick=()=>folderMenu(S.folder);
 $('grid').onclick=e=>{if(e.target.closest('[data-act="add"]'))return;const c=e.target.closest('[data-folder]');if(c)openFolder(c.dataset.folder)};
@@ -1252,7 +1270,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261009190459';
+const APP_VER='20261010005904';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
