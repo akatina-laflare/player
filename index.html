@@ -122,6 +122,27 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .card .t{font-size:15px;font-weight:500}
 .card:active .art{transform:scale(.97)}
 
+.jampill{display:inline-flex;align-items:center;gap:8px;margin:0 0 10px;padding:6px 13px 6px 11px;border-radius:999px;background:var(--chip);color:var(--accent);font-size:14px;font-weight:600;max-width:100%}
+.jampill[hidden]{display:none}
+.jampill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jampill i{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;animation:jamDot 1.6s ease-in-out infinite}
+.jampill.warn{background:var(--accent);color:#fff}.jampill.warn i{background:#fff}
+@keyframes jamDot{50%{opacity:.25}}
+.ib.on{background:var(--accent);color:#fff!important}
+.jamcode{font-family:var(--mono);font-size:40px;font-weight:700;letter-spacing:.14em;text-align:center;margin:4px 0 0;color:var(--accent)}
+.swhint{position:fixed;left:50%;top:40%;display:flex;align-items:center;gap:8px;max-width:72vw;transform:translate(-50%,-50%) scale(.9);background:rgba(18,16,22,.58);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);color:#fff;font-weight:700;font-size:18px;padding:11px 18px;border-radius:999px;pointer-events:none;opacity:0;transition:opacity .16s,transform .16s,background .2s;z-index:60;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.swhint b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.swhint svg{width:20px;height:20px;flex:none}
+.swhint.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.swhint.track{background:var(--accent);font-size:16px}
+.swhint.pop{animation:swPop .26s cubic-bezier(.34,1.56,.64,1)}
+.swhint.out{animation:swOut .72s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes swPop{from{transform:translate(-50%,-50%) scale(.72)}to{transform:translate(-50%,-50%) scale(1)}}
+@keyframes swOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1.14)}30%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-95%) scale(.94)}}
+.swrip{position:fixed;overflow:hidden;pointer-events:none;z-index:59}
+.swrip i{position:absolute;top:50%;width:150%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.42),rgba(255,255,255,0) 68%);transform:translate(-50%,-50%) scale(0);animation:swRip .7s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes swRip{60%{opacity:1}to{transform:translate(-50%,-50%) scale(1);opacity:0}}
+.big.spring{transition:transform .58s cubic-bezier(.34,1.56,.64,1),opacity .3s ease}
 .dupbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--chip);border-radius:14px;padding:10px 10px 10px 14px;margin:10px 0 4px}
 .dupbar span{display:flex;align-items:center;gap:8px;min-width:0;font-size:14px}
 .dupbar svg{color:var(--danger);flex:none}
@@ -269,6 +290,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
     <button class="ib acc" id="navBack" aria-label="Indietro" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
     <span class="nav-t" id="navT">Libreria</span>
     <div class="top-btns">
+      <button class="ib acc" id="navJam" aria-label="Jam"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.6 14.6c2.5.3 4.4 2.2 4.4 4.9"/></svg></button>
       <button class="ib acc" id="navSet" aria-label="Impostazioni"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></button>
       <button class="ib acc" id="navAdd" aria-label="Aggiungi brani"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
     </div>
@@ -281,10 +303,12 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
       <h1 id="h1">Libreria</h1>
       <div class="top-btns">
         <button class="ib acc" id="folderMore" aria-label="Opzioni cartella" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+        <button class="ib acc" id="jamBtn" aria-label="Jam: ascoltate insieme"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.6 14.6c2.5.3 4.4 2.2 4.4 4.9"/></svg></button>
         <button class="ib acc" id="setBtn" aria-label="Impostazioni"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></button>
         <button class="ib acc" id="addBtn" aria-label="Aggiungi brani"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
       </div>
     </div>
+    <button class="jampill" id="jamPill" hidden><i></i><span></span></button>
   </header>
   <nav class="seg" id="seg" role="tablist">
     <button role="tab" data-tab="songs" aria-selected="true">Brani</button>
@@ -363,6 +387,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
       <button class="chip" id="speedBtn"><span id="speedL">Velocità 1×</span></button>
       <button class="chip" id="timerBtn" aria-label="Timer di spegnimento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span id="timerL"></span></button>
       <button class="chip" id="abBtn"><span id="abL">Loop A-B</span></button>
+      <button class="chip" id="jamNp" aria-label="Jam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.6 14.6c2.5.3 4.4 2.2 4.4 4.9"/></svg></button>
       <button class="chip" id="npTools" aria-label="Velocità e loop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg><span id="toolsL"></span></button>
     </div>
     <div class="upnext" id="upNext" hidden>
@@ -708,7 +733,7 @@ async function srcFor(t){if(isCloud(t)&&!urls[t.id]&&!t.offline){const c=await c
 function shuffled(ids,first){const a=ids.filter(i=>i!==first);for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}if(first)a.unshift(first);return a}
 function startContext(ids,startId,label){S.ctxBase=[...ids];S.ctx=S.shuffle?shuffled(ids,startId):[...ids];S.pos=Math.max(0,S.ctx.indexOf(startId));S.ctxLabel=label||'';load(S.ctx[S.pos],true)}
 let loadToken=0;
-async function load(id,autoplay,at=0){const t=S.byId.get(id);if(!t)return;const my=++loadToken;const changed=S.curId!==id;S.curId=id;S.A=S.B=null;updateAB();
+async function load(id,autoplay,at=0){if(jamHookLoad(id))return;const t=S.byId.get(id);if(!t)return;const my=++loadToken;const changed=S.curId!==id;S.curId=id;S.A=S.B=null;updateAB();
   const mini=$('mini');if(mini.hidden){mini.hidden=false;mini.classList.remove('enter');void mini.offsetWidth;mini.classList.add('enter')}
   updateNow();render();if(changed){const b=$('bigArt');b.classList.remove('swap');void b.offsetWidth;b.classList.add('swap')}
   const src=await srcFor(t);if(my!==loadToken)return;
@@ -736,7 +761,7 @@ audio.addEventListener('error',()=>{const t=S.byId.get(S.curId);if(!t||!audio.sr
   if(isCloud(t)&&!audio.src.startsWith('blob:')){cloudFallback(t);return}
   playError(t)});
 function toggle(){if(!S.curId){const v=S.visible.length?S.visible:lib().map(t=>t.id);if(v.length)startContext(v,S.shuffle?v[Math.floor(Math.random()*v.length)]:v[0],$('h1').textContent);return}
-  if(audio.paused){if(!audio.src){load(S.curId,true,lastPos);return}audio.play().catch(()=>{})}else audio.pause()}
+  if(audio.paused){if(!audio.src||audio.src===jamSilentUrl){load(S.curId,true,lastPos);return}audio.play().catch(()=>{})}else audio.pause()}
 function next(auto){setTimeout(preloadNext,600);setTimeout(renderUpNext,50);
   if(S.up.length){const id=S.up.shift();load(id,true);return}
   if(!S.ctx.length)return;let p=S.pos+1;
@@ -744,7 +769,7 @@ function next(auto){setTimeout(preloadNext,600);setTimeout(renderUpNext,50);
   S.pos=p;load(S.ctx[p],true)}
 function prev(){if(audio.currentTime>3||!S.ctx.length||S.pos<=0){audio.currentTime=0;return}S.pos--;load(S.ctx[S.pos],true)}
 let counted=null;
-audio.addEventListener('ended',()=>{if(S.sleepTrack){S.sleepTrack=false;updTimer();audio.currentTime=0;return}if(S.repeat==='one'){audio.currentTime=0;audio.play().catch(()=>{});return}next(true)});
+audio.addEventListener('ended',()=>{if(S.sleepTrack){S.sleepTrack=false;updTimer();audio.currentTime=0;return}if(jamIsGuest()){jamEnded();return}if(S.repeat==='one'){audio.currentTime=0;audio.play().catch(()=>{});return}next(true)});
 audio.addEventListener('play',()=>{syncPlay();loop()});audio.addEventListener('pause',syncPlay);
 audio.addEventListener('timeupdate',()=>{const t=S.byId.get(S.curId);if(t&&counted!==t.id&&audio.currentTime>Math.min(30,(audio.duration||60)/2)){counted=t.id;t.plays=(t.plays||0)+1;saveTrack(t)}abCheck()});
 audio.addEventListener('loadedmetadata',()=>{const t=S.byId.get(S.curId);if(t&&isFinite(audio.duration)&&Math.abs((t.duration||0)-audio.duration)>1){t.duration=audio.duration;saveTrack(t)}progress()});
@@ -767,7 +792,7 @@ function drawWave(frac){const t=S.byId.get(S.curId);if(!t)return;const d=audio.d
 function updateNow(){const t=S.byId.get(S.curId);if(!t)return;
   paintArt($('miniArt'),t);paintArt($('bigArt'),t);const c=coverOf(t);$('npBg').style.background=c?`url("${c}") center/cover`:gradient(t.name);
   $('miniT').textContent=$('npT').textContent=t.name;$('miniS').textContent=$('npS').textContent=lastSeg(t.folder);
-  $('npFrom').textContent=S.ctxLabel?'Da: '+S.ctxLabel:'In riproduzione';
+  $('npFrom').textContent=jam?jamLabel():S.ctxLabel?'Da: '+S.ctxLabel:'In riproduzione';
   $('npFav').innerHTML=ICON.heart(24,t.fav);$('npFav').setAttribute('aria-pressed',String(!!t.fav));
   $('notes').value=ls.get('sp-notes:'+t.id)||'';
   const i=t.info||{},kv=[];
@@ -780,7 +805,7 @@ function updateNow(){const t=S.byId.get(S.curId);if(!t)return;
   if(i.lossless)kv.push(`<span class="tag ll" style="margin:0">Lossless</span>`);
   $('tech').innerHTML=kv.join('')+`<span style="flex-basis:100%;font-family:var(--font)">${esc(t.file)}${isCloud(t)?` · ${cloudName(t)}, ${t.offline?'scaricato sul telefono':'in streaming'}`:''}</span>`;
   progress();syncPlay();renderUpNext()}
-function renderUpNext(){const box=$('upNext'),L=$('upList');if(!box)return;const ids=upcoming(4);box.hidden=!ids.length;
+function renderUpNext(){jamPush();const box=$('upNext'),L=$('upList');if(!box)return;const ids=upcoming(4);box.hidden=!ids.length;
   L.innerHTML=ids.map((id,i)=>{const t=S.byId.get(id);if(!t)return'';const q=i<S.up.length;return`<button class="up-item" data-up="${i}" style="animation-delay:${i*40}ms"><div class="art" data-a="${id}"></div><div class="txt"><div class="t">${esc(t.name)}</div><div class="s">${q?'<span class="q">In coda · </span>':''}${esc(lastSeg(t.folder))}${t.duration?' · '+fmt(t.duration):''}</div></div>${cacheIdx[id]||t.offline||urls[id]?'<span class="s" title="Pronto">'+ICON.down+'</span>':''}</button>`}).join('');
   L.querySelectorAll('[data-a]').forEach(a=>paintArt(a,S.byId.get(a.dataset.a)));
   L.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>jumpTo(+b.dataset.up))}
@@ -828,22 +853,54 @@ window.addEventListener('resize',()=>drawWave());
   inn.addEventListener('touchend',end);inn.addEventListener('touchcancel',end)})();
 
 /* scorri sulla copertina per cambiare brano */
-function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false;
-  el.addEventListener('touchstart',e=>{if(!S.curId)return;x0=e.touches[0].clientX;y0=e.touches[0].clientY;dx=0;dir=null;moved=false;el.classList.remove('slide')},{passive:true});
-  el.addEventListener('touchmove',e=>{if(x0==null)return;const mx=e.touches[0].clientX-x0,my=e.touches[0].clientY-y0;
+function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false,vx=0,lx=0,lt=0;
+  el.addEventListener('touchstart',e=>{if(!S.curId)return;x0=lx=e.touches[0].clientX;y0=e.touches[0].clientY;lt=performance.now();vx=0;dx=0;dir=null;moved=false;el.classList.remove('slide')},{passive:true});
+  el.addEventListener('touchmove',e=>{if(x0==null)return;const cx=e.touches[0].clientX,now=performance.now();if(now>lt){vx=(cx-lx)/(now-lt)*.6+vx*.4;lx=cx;lt=now}
+    const mx=cx-x0,my=e.touches[0].clientY-y0;
     if(!dir&&(Math.abs(mx)>8||Math.abs(my)>8))dir=Math.abs(mx)>Math.abs(my)?'h':'v';
     if(dir!=='h')return;moved=true;dx=mx;if(opt.move)opt.move(dx)},{passive:true});
   const end=()=>{if(x0==null)return;x0=null;if(dir!=='h'){if(opt.reset)opt.reset();return}
+    if(opt.end){opt.end(dx,performance.now()-lt>120?0:vx);return}
     if(dx<-opt.th){opt.go(1)}else if(dx>opt.th){opt.go(-1)}else if(opt.reset)opt.reset()};
   el.addEventListener('touchend',end);el.addEventListener('touchcancel',()=>{x0=null;if(opt.reset)opt.reset()});
   el.addEventListener('click',e=>{if(moved){e.preventDefault();e.stopPropagation();moved=false}},true)}
 (()=>{const big=$('bigArt');
   const set=(x,o)=>{big.style.transform=x==null?'':`translateX(${x}px) rotate(${x/40}deg)`;big.style.opacity=o==null?'':o};
-  swipeable(big,{th:70,move:dx=>set(dx,String(Math.max(.4,1-Math.abs(dx)/500))),
-    reset:()=>{big.classList.add('slide');set(null,null)},
-    go:d=>{const w=big.clientWidth+80;big.classList.add('slide');set(d>0?-w:w,'0');
-      setTimeout(()=>{big.classList.remove('slide');set(d>0?w:-w,'0');if(d>0)next(false);else{if(audio.currentTime>3)audio.currentTime=0;prev()}
-        requestAnimationFrame(()=>requestAnimationFrame(()=>{big.classList.add('slide');set(null,null)}))},220)}});
+  /* scorrimento sulla copertina: breve = ±5 s (destra avanti, sinistra indietro), lungo = cambia brano */
+  const hint=document.createElement('div');hint.className='swhint';document.body.appendChild(hint);
+  let swz=null,hintT=null;
+  const FF='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 6v12l8.5-6zM12 6v12l8.5-6z"/></svg>',RW='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6v12l-8.5-6zM12 6v12l-8.5-6z"/></svg>';
+  const place=el=>{const r=big.getBoundingClientRect();el.style.left=(r.left+r.width/2)+'px';el.style.top=(r.top+r.height/2)+'px'};
+  const tname=d=>{if(d>0){const id=upcoming(1)[0],t=id&&S.byId.get(id);return t?'Successivo · '+t.name:'Fine della lista'}
+    if(audio.currentTime>3||S.pos<=0)return'Ricomincia';const t=S.byId.get(S.ctx[S.pos-1]);return t?'Precedente · '+t.name:'Ricomincia'};
+  const showZone=(z,dx)=>{if(z===swz)return;swz=z;clearTimeout(hintT);hint.classList.remove('out');
+    if(!z){hint.classList.remove('show','pop','track');return}
+    place(hint);const fwd=dx>0;
+    hint.innerHTML=z==='track'?`${dx<0?FF:RW}<b>${esc(tname(dx<0?1:-1))}</b>`:`${fwd?FF:RW}<b>${fwd?'+':'−'}5 s</b>`;
+    hint.classList.toggle('track',z==='track');hint.classList.add('show');hint.classList.remove('pop');void hint.offsetWidth;hint.classList.add('pop');
+    try{navigator.vibrate&&navigator.vibrate(6)}catch(e){}};
+  const ripple=fwd=>{const r=big.getBoundingClientRect(),w=document.createElement('div');w.className='swrip';
+    Object.assign(w.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',borderRadius:getComputedStyle(big).borderRadius});
+    w.innerHTML=`<i style="left:${fwd?86:14}%"></i>`;document.body.appendChild(w);setTimeout(()=>w.remove(),750)};
+  const FULL=()=>Math.max(110,big.clientWidth*.42),SMALL=24;
+  const kind=(dx,v)=>{const a=Math.abs(dx);return a>=FULL()||(a>70&&Math.abs(v)>.75)?'track':a>=SMALL?'seek':null};
+  const follow=dx=>{const F=FULL(),a=Math.abs(dx),sg=Math.sign(dx);const tx=a<F?dx*.85:sg*(F*.85+(a-F)*.55);
+    big.style.transform=`translateX(${tx}px) rotate(${tx/55}deg) scale(${Math.max(.94,1-Math.abs(tx)/2200)})`;big.style.opacity=a<F?'':String(Math.max(.55,1-(a-F)/300))};
+  const springBack=()=>{big.classList.remove('slide');big.classList.add('spring');big.style.transform='';big.style.opacity='';setTimeout(()=>big.classList.remove('spring'),620)};
+  const seekBy=s=>{if(!audio.src||audio.readyState<1){toast('Fai partire il brano per spostarti');return false}const d=audio.duration||0;
+    try{audio.currentTime=Math.max(0,Math.min(d?d-.2:1e9,(audio.currentTime||0)+s))}catch(e){}progress();return true};
+  const goTrack=d=>{const w=big.clientWidth+80;big.classList.remove('spring');big.classList.add('slide');set(d>0?-w:w,'0');
+      setTimeout(()=>{big.classList.remove('slide');big.style.transform=`translateX(${d>0?w*.6:-w*.6}px) scale(.88)`;big.style.opacity='0';
+        if(d>0)next(false);else{if(audio.currentTime>3)audio.currentTime=0;prev()}
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{big.classList.add('spring');big.style.transform='';big.style.opacity='';setTimeout(()=>big.classList.remove('spring'),620)}))},230)};
+  swipeable(big,{th:70,move:dx=>{big.classList.remove('spring');follow(dx);showZone(kind(dx,0),dx)},
+    reset:()=>{springBack();showZone(null)},
+    end:(dx,v)=>{const k=kind(dx,v);if(k==='track'){showZone(null);goTrack(dx<0?1:-1);return}
+      springBack();if(k!=='seek'){showZone(null);return}
+      const sv=dx>0?5:-5;if(!seekBy(sv)){showZone(null);return}ripple(sv>0);
+      if(swz!=='seek')showZone('seek',dx);hint.classList.remove('pop');void hint.offsetWidth;hint.classList.add('out');
+      hintT=setTimeout(()=>{hint.classList.remove('show','out','pop');swz=null},720)},
+    go:goTrack});
   const mini=$('openNp');
   swipeable(mini,{th:50,move:dx=>{mini.style.transform=`translateX(${dx*.6}px)`;mini.style.opacity=String(Math.max(.3,1-Math.abs(dx)/300))},
     reset:()=>{mini.style.transition='transform .2s,opacity .2s';mini.style.transform='';mini.style.opacity='';setTimeout(()=>mini.style.transition='',220)},
@@ -903,8 +960,8 @@ const headFor=t=>`<div class="sh-head"><div class="art" id="shArt"></div><div cl
 
 function trackMenu(id){const t=S.byId.get(id);if(!t)return;
   const opts=[
-    {icon:ICON.playNext,label:'Riproduci dopo',fn:()=>{S.up.unshift(id);if(!S.curId)next();toast('Suonerà dopo il brano attuale');renderUpNext();setTimeout(preloadNext,300)}},
-    {icon:ICON.queueAdd,label:'Aggiungi in coda',fn:()=>{S.up.push(id);if(!S.curId)next();toast('Aggiunto in coda');renderUpNext();setTimeout(preloadNext,300)}},
+    {icon:ICON.playNext,label:'Riproduci dopo',fn:()=>{if(jamQueue(id,true))return;S.up.unshift(id);if(!S.curId)next();toast('Suonerà dopo il brano attuale');renderUpNext();setTimeout(preloadNext,300)}},
+    {icon:ICON.queueAdd,label:'Aggiungi in coda',fn:()=>{if(jamQueue(id,false))return;S.up.push(id);if(!S.curId)next();toast('Aggiunto in coda');renderUpNext();setTimeout(preloadNext,300)}},
     {icon:`<span class="acc">${ICON.heart(20,t.fav)}</span>`,label:t.fav?'Togli dai preferiti':'Aggiungi ai preferiti',fn:()=>setFav(t,!t.fav)},
     ...(!t.demo&&navigator.share?[{icon:ICON.share,label:'Condividi il brano',hint:'WhatsApp, AirDrop',fn:()=>{blobFor(t,{fetch:false}).then(b=>{if(b)shareBlobs[t.id]=b;shareTrack(t)})}}]:[]),
     {icon:ICON.pencil,label:'Rinomina',fn:()=>setTimeout(()=>renameSheet(t),320)},
@@ -987,13 +1044,14 @@ async function settingsSheet(){
     <p class="note">Su iPhone aggiungi il player alla schermata Home (Condividi › Aggiungi a Home): così i brani restano salvati in modo stabile.</p>
     <div class="sec">Condividere con un amico</div>
     <p class="note">Il player parte sempre vuoto: chi lo riceve non vede i tuoi brani. Per fargli avere i pezzi, condividi con lui la cartella da Dropbox e chiedigli di aggiungerla al suo Dropbox. Poi nel suo player tocca Collega Dropbox con il suo account e sceglie quella cartella: i brani nuovi arrivano anche a lui da soli.</p>
+    ${!isApp()&&(instEvt||!IOS)?`<div class="opts"><button class="opt" id="instBtn"><img src="icon-192.png" alt="" style="width:22px;height:22px;border-radius:6px"><span class="lbl">Installa come app</span><span class="hint">${IOS?'':'computer'}</span></button></div>`:''}
     <div class="opts"><button class="opt" id="updBtn"><span class="lbl">Controlla aggiornamenti</span><span class="hint">versione ${APP_VER.slice(6,8)}/${APP_VER.slice(4,6)} ${APP_VER.slice(8,10)}:${APP_VER.slice(10,12)}</span></button></div>
     ${mine.length?`<div class="sec">Dati</div><div class="opts"><button class="opt danger" id="wipe"><span class="lbl">Rimuovi tutti i brani dal player</span></button></div><p class="note">Cancella solo le copie salvate sul telefono. I file su iCloud e su Dropbox non vengono toccati.</p>`:''}`,
   el=>{el.querySelectorAll('.segs').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{SET[sg.dataset.key]=b.dataset.v;saveSet();applySettings();sg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));render();updateNow()}));
     el.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>{SET.accent=b.dataset.acc;saveSet();applySettings();el.querySelectorAll('[data-acc]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});
     el.querySelector('#tgTech').onclick=e=>{SET.tech=!SET.tech;saveSet();applySettings();e.currentTarget.setAttribute('aria-checked',String(SET.tech));render()};
     const p=el.querySelector('#persist');if(p)p.onclick=async()=>{let ok=false;try{ok=await navigator.storage.persist()}catch(e){}toast(ok?'Brani protetti':'Il browser non lo permette qui: aggiungi il player alla schermata Home');if(ok)settingsSheet()};
-    dbxSettingsMount(el);gdSettingsMount(el);const ub=el.querySelector('#updBtn');if(ub)ub.onclick=()=>{closeSheet();checkUpdate(true)};
+    dbxSettingsMount(el);gdSettingsMount(el);const ib=el.querySelector('#instBtn');if(ib)ib.onclick=()=>{closeSheet();doInstall()};const ub=el.querySelector('#updBtn');if(ub)ub.onclick=()=>{closeSheet();checkUpdate(true)};
     const gst=el.querySelector('#gdStatus');if(gst){const t=S.tracks.find(x=>x.src==='gd');const t0=Date.now();
       (t?fetch(gdUrl(t),{headers:{Range:'bytes=0-1'}}).then(r=>{if(!r.ok&&r.status!==206)throw 0}):Promise.reject()).then(()=>{gst.textContent=`Drive risponde (${Date.now()-t0} ms): i brani si preparano normalmente.`},()=>{gst.textContent=t?'Drive al momento non risponde da questa rete (blocco temporaneo di Google). Con i dati mobili dovrebbe funzionare; il blocco passa da solo.':''})}
     el.querySelectorAll('#cacheSeg button').forEach(b=>b.onclick=async()=>{SET.cacheMB=+b.dataset.mb;saveSet();el.querySelectorAll('#cacheSeg button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));await cacheTrim();if(SET.cacheMB)preloadNext()});
@@ -1292,6 +1350,177 @@ async function dbxKeep(t,quiet){if(t.offline)return true;if(!quiet)toast('Scaric
 async function dbxUnkeep(t,quiet){await idb.del('blobs',t.id);t.offline=false;await saveTrack(t);if(urls[t.id]&&t.id!==S.curId){URL.revokeObjectURL(urls[t.id]);delete urls[t.id]}render();if(t.id===S.curId)updateNow();if(!quiet)toast('Tolto dal telefono: resta su '+cloudName(t))}
 async function dbxKeepAll(){if(keepBusy)return;keepBusy=true;try{const q=S.tracks.filter(t=>isCloud(t)&&!t.offline);for(const t of q){if(!SET.dbxKeep)break;if(!(await dbxKeep(t,true)))break}}finally{keepBusy=false}}
 
+/* ================= Jam: ascoltare insieme =================
+   Ognuno ascolta dal suo telefono la stessa canzone nello stesso momento.
+   Chi avvia la Jam (host) comanda la musica; gli altri seguono e possono chiedere brani.
+   I messaggi passano da ntfy.sh (servizio pubblico gratuito) cifrati con AES-GCM:
+   la chiave nasce dal codice della Jam e non lascia mai i telefoni. */
+const JAM_SRV='https://ntfy.sh/';
+const JAM_AB='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+var jam=null;
+const jamMe=(()=>{let v=ls.get('sp-jam-me');if(!v){v=uid();ls.set('sp-jam-me',v)}return v})();
+const ICON_JAM=z=>`<svg${z?` width="${z}" height="${z}"`:''} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.6 14.6c2.5.3 4.4 2.2 4.4 4.9"/></svg>`;
+const jamNet={
+  pub:async(topic,body)=>{const r=await fetch(JAM_SRV+topic,{method:'POST',body});if(!r.ok)throw Object.assign(new Error('jam '+r.status),{status:r.status})},
+  sub:(topic,since,onMsg,onErr)=>{const es=new EventSource(JAM_SRV+topic+'/sse'+(since?'?since='+encodeURIComponent(since):''));
+    es.onmessage=e=>{try{const d=JSON.parse(e.data);if(d&&d.message)onMsg(d)}catch(x){}};es.onerror=()=>onErr&&onErr();return()=>es.close()}};
+const jEnc=new TextEncoder();
+const jSha=async s=>new Uint8Array(await crypto.subtle.digest('SHA-256',jEnc.encode(s)));
+async function jamKeys(code){const h=await jSha('studio-player-jam|topic|'+code);
+  const topic='spjam_'+[...h.slice(0,16)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  const key=await crypto.subtle.importKey('raw',await jSha('studio-player-jam|key|'+code),'AES-GCM',false,['encrypt','decrypt']);return{topic,key}}
+async function jamSeal(o,key){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,jEnc.encode(JSON.stringify(o))));
+  const a=new Uint8Array(12+ct.length);a.set(iv);a.set(ct,12);let s='';for(let i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s)}
+async function jamUnseal(s,key){const b=Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},key,b.slice(12))))}
+const jamNewCode=()=>[...crypto.getRandomValues(new Uint8Array(6))].map(x=>JAM_AB[x%32]).join('');
+const jamFmt=c=>c.slice(0,3)+' '+c.slice(3);
+function jamParse(v){v=String(v||'');const m=v.match(/jam=([A-Za-z0-9]{6})/);if(m)v=m[1];v=v.toUpperCase().replace(/[^A-Z0-9]/g,'');return/^[A-HJ-NP-Z2-9]{6}$/.test(v)?v:null}
+const jamName=()=>SET.jamName||((accts[0]&&accts[0].name)||'').split(' ')[0]||'Ospite';
+const jamKey=t=>t.hash?'h:'+String(t.hash).slice(0,24):'n:'+normName(t.name);
+function jamFind(k,n){const c=S.tracks.filter(t=>!t.demo);let t=k?c.find(t=>jamKey(t)===k):null;if(!t&&n){const nn=normName(n);t=c.find(t=>normName(t.name)===nn)}return t||null}
+const jamIsHost=()=>!!jam&&jam.role==='host',jamIsGuest=()=>!!jam&&jam.role==='guest';
+function jamSave(){if(jam)ls.set('sp-jam',JSON.stringify({code:jam.code,role:jam.role,lastId:jam.lastId,at:Date.now()}))}
+async function jamSend(o,j=jam){if(!j)return;o.from=jamMe;o.who=jamName();o.ts=Date.now();
+  try{await jamNet.pub(j.topic,await jamSeal(o,j.key));j.fails=0}
+  catch(e){j.fails=(j.fails||0)+1;if(jam!==j)return;if(e.status===429)toast('Jam: troppe azioni di fila, aspetta qualche secondo',3500);else if(j.fails===2)toast('Jam: la connessione è instabile',3000)}}
+function jamConnect(since){const j=jam;if(!j)return;if(j.close)j.close();clearTimeout(j.rt);
+  j.close=jamNet.sub(j.topic,since,d=>jamOnMsg(d,j),()=>{if(jam!==j)return;if(j.close)j.close();j.close=null;clearTimeout(j.rt);j.rt=setTimeout(()=>{if(jam===j)jamConnect(j.lastId||'1m')},2500)})}
+
+/* --- host --- */
+const jamMembers=()=>jam?Object.values(jam.peers).map(p=>p.n):[];
+function jamState(){const t=S.byId.get(S.curId);const q=t?upcoming(6).map(id=>S.byId.get(id)).filter(Boolean).map(x=>({k:jamKey(x),n:x.name})):[];
+  return{y:'st',k:t?jamKey(t):null,n:t?t.name:'',p:+(audio.currentTime||0).toFixed(2),pl:!!t&&!audio.paused,r:audio.playbackRate||1,q,m:jamMembers(),ctl:jam.ctl!==false}}
+function jamPush(force){if(!jamIsHost())return;if(force)jam.force=true;clearTimeout(jam.pt);const j=jam;
+  j.pt=setTimeout(()=>{if(jam!==j)return;const s=jamState();const sig=JSON.stringify([s.k,s.pl,s.q.map(x=>x.k),s.m,s.ctl,s.r]);
+    if(!j.force&&sig===j.sig)return;j.force=false;j.sig=sig;jamSend(s,j)},j.force?80:400)}
+function jamGo(id){const u=S.up.indexOf(id);if(u>=0){S.up.splice(u,1);load(id,true);return}
+  const k=S.ctx.indexOf(id);if(k>=0){S.pos=k;load(id,true);return}S.up.unshift(id);next(false)}
+function jamCmd(o){const who=o.who||'Qualcuno',ctl=jam.ctl!==false;
+  if(o.a==='add'||(!ctl&&o.a==='play')){const t=jamFind(o.k,o.n);if(!t){toast(`${who} vorrebbe «${o.n}», ma non è nella tua libreria`,3500);return}
+    if(o.next)S.up.unshift(t.id);else S.up.push(t.id);toast(`${who} ha aggiunto «${t.name}»`,2600);if(!S.curId)next(false);renderUpNext();setTimeout(preloadNext,300);jamPush(true);return}
+  if(!ctl){jamPush(true);return}
+  if(o.a==='play'){const t=jamFind(o.k,o.n);if(!t){toast(`${who} vorrebbe «${o.n}», ma non è nella tua libreria`,3500);jamPush(true);return}
+    if(t.id!==S.curId){toast(`${who} ha messo «${t.name}»`,2200);jamGo(t.id)}jamPush(true)}
+  else if(o.a==='pl'){if(o.v){if(!S.curId||!audio.src)toggle();else audio.play().catch(()=>{})}else audio.pause();jamPush(true)}
+  else if(o.a==='seek'){let p=+o.p||0;if(o.pl)p+=Math.max(0,(Date.now()-o.ts)/1000);const d=audio.duration||0;try{audio.currentTime=d?Math.min(d-.1,p):p}catch(e){}jamPush(true)}}
+
+/* --- ospite --- */
+const jamTarget=s=>(s.p||0)+(s.pl?Math.max(0,(Date.now()-s.ts)/1000)*(s.r||1):0);
+function jamSetTime(v){jam.ownSeek=Date.now();try{audio.currentTime=v}catch(e){}}
+function jamOnHostTrack(){const t=S.byId.get(S.curId),s=jam&&jam.st;return!!(t&&s&&(jamKey(t)===s.k||normName(t.name)===normName(s.n)))}
+function jamDrift(){if(!jamIsGuest()||!jam.st||jam.missing||Date.now()<(jam.hold||0)||!jamOnHostTrack()||audio.readyState<1)return;
+  const s=jam.st,tg=jamTarget(s),d=audio.duration||0;if(d&&tg>d-.3)return;
+  if(Math.abs((audio.currentTime||0)-tg)>(s.pl?.8:.3))jamSetTime(tg)}
+function jamNeedTap(){if(!jam)return;jam.needTap=true;jamUI()}
+async function jamApply(){if(!jamIsGuest()||!jam.st)return;const s=jam.st,j=jam;
+  if(Date.now()-s.ts>10*60e3&&!j.live){jamUI();return}  // stato vecchio: aspetto che l'host risponda
+  j.live=true;j.quiet=Date.now()+1500;
+  const t=s.k?jamFind(s.k,s.n):null;
+  if(!t){j.missing=s.k?s.n:null;if(!audio.paused)audio.pause();jamUI();return}
+  j.missing=null;
+  const q=(s.q||[]).map(x=>jamFind(x.k,x.n)).filter(x=>x&&x.id!==t.id).map(x=>x.id);
+  S.ctx=[t.id,...q];S.ctxBase=[...S.ctx];S.pos=0;S.up=[];S.ctxLabel='Jam';
+  if(audio.playbackRate!==(s.r||1))audio.playbackRate=s.r||1;
+  if(S.curId!==t.id||!audio.src||audio.src===jamSilentUrl){j.applying=true;const p=load(t.id,s.pl);j.applying=false;await p;if(jam!==j)return;j.quiet=Date.now()+1500;
+    if(s.pl&&audio.paused&&audio.readyState>=1)audio.play().catch(()=>jamNeedTap())}
+  else{jamDrift();if(s.pl&&audio.paused)audio.play().catch(()=>jamNeedTap());else if(!s.pl&&!audio.paused)audio.pause()}
+  renderUpNext();setTimeout(preloadNext,300);jamUI()}
+function jamAsk(o){o.y='cmd';jam.hold=Date.now()+3000;jamSend(o)}
+/* chiamato all'inizio di load(): se l'ospite sceglie un altro brano lo chiede all'host */
+function jamHookLoad(id){if(!jamIsGuest()||jam.applying)return false;const t=S.byId.get(id);if(!t)return false;
+  if(jam.st&&jamKey(t)===jam.st.k)return false;
+  if(jam.st&&jam.st.ctl===false){jamAsk({a:'add',k:jamKey(t),n:t.name});toast(`«${t.name}» aggiunto alla coda della Jam`);setTimeout(jamApply,60);return true}
+  jamAsk({a:'play',k:jamKey(t),n:t.name});return false}
+function jamQueue(id,first){if(!jamIsGuest())return false;const t=S.byId.get(id);if(!t)return true;
+  jamAsk({a:'add',k:jamKey(t),n:t.name,next:!!first});toast(`«${t.name}» aggiunto alla Jam`);return true}
+function jamEnded(){const id=S.curId;setTimeout(()=>{if(jamIsGuest()&&S.curId===id&&audio.ended){jam.applying=true;next(true);jam.applying=false}},3000)}
+
+async function jamOnMsg(d,j){if(jam!==j)return;j.lastId=d.id;jamSave();let o;try{o=await jamUnseal(d.message,j.key)}catch(e){return}
+  if(jam!==j||!o||o.from===jamMe)return;const age=Date.now()-(o.ts||0);
+  if(j.role==='host'){
+    if(o.y==='hi'){const isNew=!j.peers[o.from];j.peers[o.from]={n:o.who||'Ospite',at:Date.now()};if(isNew&&age<120e3)toast(`${o.who||'Qualcuno'} è entrato nella Jam`,2600);jamUI();jamPush(true)}
+    else if(o.y==='bye'){if(j.peers[o.from]){delete j.peers[o.from];if(age<120e3)toast(`${o.who||'Qualcuno'} è uscito dalla Jam`,2600);jamUI();jamPush(true)}}
+    else if(o.y==='cmd'&&age<120e3){if(!j.peers[o.from]){j.peers[o.from]={n:o.who||'Ospite'};jamUI()}j.peers[o.from].at=Date.now();jamCmd(o)}}
+  else{
+    if(o.y==='st'){if(!j.st||o.ts>=j.st.ts){j.st=o;j.host=o.from;clearTimeout(j.at);j.at=setTimeout(jamApply,40)}
+      if(o.ask&&age<120e3)setTimeout(()=>{if(jam===j)jamSend({y:'hi'},j)},300+Math.random()*1500)}
+    else if(o.y==='end'&&(!j.host||o.from===j.host)&&age<6*3600e3){toast(`${o.who||'L\'host'} ha chiuso la Jam`,3500);jamStop(true)}}}
+
+/* --- avvio, uscita --- */
+let jamSilentUrl=null;
+function jamUnlock(){/* sbloccare l'audio con un tocco: dopo, i brani della Jam possono partire da soli */
+  try{if(audio.src&&audio.src!==jamSilentUrl)return;if(!jamSilentUrl){const n=800,b=new ArrayBuffer(44+n),v=new DataView(b);const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+      w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,16000,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n,true);
+      jamSilentUrl=URL.createObjectURL(new Blob([b],{type:'audio/wav'}))}
+    if(jam)jam.quiet=Date.now()+1500;audio.src=jamSilentUrl;
+    audio.play().then(()=>{if(audio.src===jamSilentUrl){audio.pause();audio.removeAttribute('src');audio.load()}}).catch(()=>{})}catch(e){}}
+async function jamBegin(code,role,resume){if(jam)jamStop(false);const k=await jamKeys(code);
+  jam={code,role,topic:k.topic,key:k.key,peers:{},st:null,lastId:resume&&resume.lastId||null,ctl:role==='host'?SET.jamCtl!==false:true};
+  jamSave();jamConnect(jam.lastId||(role==='guest'?'latest':null));jamUI();if(S.curId)updateNow();
+  if(role==='host'){const s=jamState();s.ask=1;jam.sig=JSON.stringify([s.k,s.pl,s.q.map(x=>x.k),s.m,s.ctl,s.r]);jamSend(s)}else jamSend({y:'hi'})}
+function jamStop(remote){if(!jam)return;const j=jam;if(!remote)jamSend({y:j.role==='host'?'end':'bye'},j);
+  clearTimeout(j.rt);clearTimeout(j.pt);clearTimeout(j.at);setTimeout(()=>{if(j.close)j.close()},remote?0:1500);
+  jam=null;ls.del('sp-jam');if(S.ctxLabel==='Jam')S.ctxLabel='';jamUI();if(S.curId)updateNow()}
+function jamBoot(){const m=location.hash.match(/jam=([A-Za-z0-9]{6})/);
+  if(m){history.replaceState(null,'',location.pathname+location.search);setTimeout(()=>jamSheet(m[1].toUpperCase()),600);return}
+  try{const r=JSON.parse(ls.get('sp-jam')||'null');if(r&&r.code&&Date.now()-r.at<6*3600e3){jamBegin(r.code,r.role,r).then(()=>{if(r.role==='guest'&&audio.paused)jamNeedTap()})}}catch(e){}}
+
+/* --- interfaccia --- */
+function jamLabel(){if(!jam)return'';if(jam.role==='host'){const m=jamMembers();return m.length?'Jam con '+m.join(', '):'Jam · codice '+jamFmt(jam.code)}
+  if(jam.needTap)return'Tocca per ascoltare con la Jam';if(jam.missing)return`Non hai «${jam.missing}»: aspetto il prossimo`;
+  return jam.st&&jam.live?'Jam di '+(jam.st.who||'un amico'):'In attesa della Jam…'}
+function jamUI(){const on=!!jam;['jamBtn','navJam','jamNp'].forEach(i=>{const b=$(i);if(b)b.classList.toggle('on',on)});
+  const p=$('jamPill');if(p){p.hidden=!on;if(on){p.querySelector('span').textContent=jamLabel();p.classList.toggle('warn',!!(jam.needTap||jam.missing))}}
+  if(on&&S.curId)$('npFrom').textContent=jamLabel()}
+function jamSheet(prefill){
+  if(!jam){openSheet(`<h2 class="sh-title">Jam</h2>
+    <p class="note" style="margin-top:-6px">Ascoltate insieme, ognuno dal suo telefono: stesso brano, stesso momento. Chi entra può mettere brani e aggiungerli alla coda.</p>
+    <div class="opts"><label class="opt"><span class="lbl">Il tuo nome</span><input id="jamNm" value="${esc(jamName()==='Ospite'?'':jamName())}" placeholder="Nome" maxlength="20" autocomplete="off" style="font:inherit;text-align:right;background:none;border:0;color:var(--muted);width:55%;outline:0"></label></div>
+    <div class="opts"><button class="opt" id="jamNew">${ICON_JAM(22)}<span class="lbl">Avvia una Jam</span></button></div>
+    <div class="sec">Entra nella Jam di un amico</div>
+    <input class="field" id="jamIn" placeholder="Codice, per esempio K7M Q2X" value="${esc(prefill?jamFmt(prefill):'')}" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn" id="jamGo">Entra</button></div>
+    <p class="note">Per sentire un brano bisogna averlo nella propria libreria: se ce l'hai anche tu (per esempio dalla cartella Dropbox condivisa) parte da solo, altrimenti il player aspetta il prossimo.</p>`,
+    el=>{const nm=el.querySelector('#jamNm');const saveNm=()=>{const v=nm.value.trim();if(v!==(SET.jamName||'')){SET.jamName=v;saveSet()}};nm.onchange=saveNm;
+      el.querySelector('#jamNew').onclick=async()=>{saveNm();await jamBegin(jamNewCode(),'host');closeSheet();setTimeout(()=>jamSheet(),330)};
+      const go=async()=>{const c=jamParse(el.querySelector('#jamIn').value);if(!c){toast('Il codice è di 6 caratteri, per esempio K7M Q2X');return}saveNm();jamUnlock();closeSheet();await jamBegin(c,'guest');toast('Sei nella Jam: aspetto la musica…',2500)};
+      el.querySelector('#jamGo').onclick=go;el.querySelector('#jamIn').onkeydown=e=>{if(e.key==='Enter')go()}});return}
+  const host=jam.role==='host';
+  const people=host?[[jamName()+' (tu)','avvia la Jam'],...jamMembers().map(n=>[n,''])]:[[(jam.st&&jam.st.who)||'Host','ha avviato la Jam'],...((jam.st&&jam.st.m)||[]).map(n=>[n===jamName()?n+' (tu)':n,''])];
+  openSheet(`<h2 class="sh-title">Jam</h2>
+    <div class="jamcode">${jamFmt(jam.code)}</div><p class="note" style="text-align:center;margin-top:2px">codice della Jam</p>
+    <div class="opts"><button class="opt" id="jamInv">${ICON.share}<span class="lbl">Invita un amico</span></button></div>
+    <div class="sec">Chi c'è</div>
+    <div class="opts">${people.map(([n,s])=>`<div class="opt">${ICON_JAM(20)}<span class="lbl">${esc(n)}${s?`<span class="s" style="display:block;margin-top:2px">${s}</span>`:''}</span></div>`).join('')}${host&&!jamMembers().length?'<div class="opt"><span class="lbl s" style="color:var(--muted)">Ancora nessuno: manda l\'invito</span></div>':''}</div>
+    ${host?`<div class="opts"><div class="opt"><span class="lbl">Gli altri possono cambiare brano<span class="s" style="display:block;margin-top:2px;white-space:normal">Se lo spegni possono solo aggiungere brani alla coda</span></span><button class="toggle" role="switch" id="tgJamCtl" aria-checked="${jam.ctl!==false}" aria-label="Gli altri possono cambiare brano"></button></div></div>`:''}
+    <div class="opts"><button class="opt danger" id="jamEnd"><span class="lbl">${host?'Termina la Jam':'Esci dalla Jam'}</span></button></div>
+    <p class="note">${host?'Chi entra sente quello che ascolti tu, nello stesso momento. Sull\'iPhone del tuo amico: apre il player dalla schermata Home › icona Jam › scrive il codice.':'Senti quello che ascolta chi ha avviato la Jam. Tocca un brano o aggiungilo alla coda dal menu ··· per proporlo.'}</p>`,
+  el=>{el.querySelector('#jamInv').onclick=async()=>{const link=REDIR+'#jam='+jam.code;const text=`Entra nella mia Jam su Studio Player 🎧\nCodice: ${jamFmt(jam.code)}\n${link}`;
+      try{if(navigator.share){await navigator.share({title:'Jam su Studio Player',text});return}}catch(e){if(e&&e.name==='AbortError')return}
+      try{await navigator.clipboard.writeText(text);toast('Invito copiato')}catch(e){toast('Codice: '+jamFmt(jam.code),6000)}};
+    const tg=el.querySelector('#tgJamCtl');if(tg)tg.onclick=e=>{jam.ctl=!(jam.ctl!==false);SET.jamCtl=jam.ctl;saveSet();e.currentTarget.setAttribute('aria-checked',String(jam.ctl));jamPush(true)};
+    const end=el.querySelector('#jamEnd');end.onclick=()=>{if(host&&jamMembers().length&&!end.dataset.armed){end.dataset.armed='1';end.querySelector('.lbl').textContent='Tocca di nuovo: la Jam finisce per tutti';return}
+      closeSheet();jamStop(false);toast(host?'Jam terminata':'Sei uscito dalla Jam')}})}
+
+/* --- collegamenti con il player --- */
+['play','pause','ratechange'].forEach(ev=>audio.addEventListener(ev,()=>jamPush()));
+audio.addEventListener('seeked',()=>{if(jamIsHost()&&S.A==null)jamPush(true)});
+const jamUser=()=>jamIsGuest()&&Date.now()>(jam.quiet||0)&&audio.src!==jamSilentUrl;
+audio.addEventListener('play',()=>{if(jamUser()&&jam.st&&!jam.st.pl&&!jam.missing&&jamOnHostTrack()){if(jam.st.ctl===false){jam.quiet=Date.now()+1000;audio.pause();toast('Solo chi ha avviato la Jam può mettere in pausa o far ripartire');return}jamAsk({a:'pl',v:true})}});
+audio.addEventListener('pause',()=>{if(jamUser()&&!audio.ended&&jam.st&&jam.st.pl&&!jam.missing&&jamOnHostTrack()){if(jam.st.ctl===false){jam.quiet=Date.now()+1000;audio.play().catch(()=>{});toast('Solo chi ha avviato la Jam può mettere in pausa');return}jamAsk({a:'pl',v:false})}});
+audio.addEventListener('seeked',()=>{if(!jamUser()||Date.now()-(jam.ownSeek||0)<1000||!jam.st||!jamOnHostTrack())return;
+  if(Math.abs(audio.currentTime-jamTarget(jam.st))>2.5){if(jam.st.ctl===false){jamDrift();return}jamAsk({a:'seek',p:audio.currentTime,pl:!audio.paused})}});
+['loadedmetadata','playing'].forEach(ev=>audio.addEventListener(ev,()=>{if(jamIsGuest()){if(ev==='playing'&&jam.needTap&&audio.src!==jamSilentUrl){jam.needTap=false;jamUI()}setTimeout(jamDrift,60)}}));
+setInterval(()=>{if(jamIsGuest()&&!audio.paused)jamDrift()},4000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&jam){jamConnect(jam.lastId||'2m');if(jamIsHost())jamPush()}});
+window.addEventListener('pagehide',jamSave);
+['jamBtn','navJam','jamNp'].forEach(i=>{const b=$(i);if(b)b.onclick=()=>jamSheet()});
+$('jamPill').onclick=()=>{if(jamIsGuest()&&jam.needTap){jam.needTap=false;jamUI();
+    if(!audio.src||audio.src===jamSilentUrl){jamUnlock();setTimeout(jamApply,80)}
+    else if(jam.st&&jam.st.pl){jam.quiet=Date.now()+1500;audio.play().then(()=>jamDrift()).catch(()=>jamNeedTap())}else setTimeout(jamApply,50);return}
+  jamSheet()};
+
 /* ================= eventi ================= */
 $('seg').onclick=e=>{const b=e.target.closest('button[data-tab]');if(!b)return;S.tab=b.dataset.tab;S.folder=null;render();window.scrollTo(0,0)};
 $('navSet').onclick=settingsSheet;$('navAdd').onclick=addSheet;$('navBack').onclick=()=>$('back').click();
@@ -1338,7 +1567,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010011606';
+const APP_VER='20261010014020';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -1351,6 +1580,19 @@ let updPending=false;
 audio.addEventListener('pause',()=>{if(updPending){updPending=false;checkUpdate(true)}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate(false)});
 
+/* ================= app da installare (computer, Android) ================= */
+let instEvt=null;
+const isApp=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEvt=e;if(!isApp()&&!ls.get('sp-inst-no'))setTimeout(installBar,1800)});
+window.addEventListener('appinstalled',()=>{instEvt=null;const b=$('instBar');if(b)b.remove();toast('Studio Player installato: lo trovi tra le tue app',3500)});
+async function doInstall(){const b=$('instBar');if(b)b.remove();
+  if(!instEvt){toast(IOS?'Su iPhone: tocca Condividi › Aggiungi alla schermata Home':'Nel menu del browser (⋮) scegli "Installa Studio Player" o l\'icona di installazione nella barra degli indirizzi',5000);return}
+  const e=instEvt;instEvt=null;try{e.prompt();const r=await e.userChoice;if(r&&r.outcome==='dismissed')instEvt=null}catch(x){}}
+function installBar(){if(!instEvt||$('instBar')||isApp())return;const d=document.createElement('div');d.id='instBar';d.className='instbar';
+  d.innerHTML=`<img src="icon-192.png" alt=""><div class="txt"><b>Installa Studio Player</b><span>Si apre come un'app, con la sua icona</span></div><button class="btn" id="instGo">Installa</button><button class="ib" id="instNo" aria-label="Non ora">${ICON.x}</button>`;
+  document.body.appendChild(d);d.querySelector('#instGo').onclick=doInstall;d.querySelector('#instNo').onclick=()=>{ls.set('sp-inst-no','1');d.remove()}}
+
 /* ================= avvio ================= */
 (async()=>{if(new URLSearchParams(location.search).has('u'))history.replaceState(null,'',REDIR);
   applySettings();syncModes();syncPlay();updTimer();setTimeout(()=>checkUpdate(false),1500);
@@ -1360,6 +1602,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdat
   try{const r=JSON.parse(ls.get('sp-resume')||'null');if(r&&S.byId.has(r.id)){S.ctx=(r.ctx||[]).filter(id=>S.byId.has(id));if(!S.ctx.includes(r.id))S.ctx=[r.id];S.ctxBase=[...S.ctx];S.pos=S.ctx.indexOf(r.id);S.ctxLabel=r.label||'';
     S.curId=r.id;lastPos=r.t||0;$('mini').hidden=false;updateNow();render();
     const t=S.byId.get(r.id),d=t.duration||0;$('miniProg').style.width=(d?lastPos/d*100:0)+'%';$('cur').textContent=fmt(lastPos);$('rem').textContent='-'+fmt(d-lastPos)}}catch(e){}
+  jamBoot();
   await gdBoot();
   await dbxBoot();
 })();
