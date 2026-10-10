@@ -1330,7 +1330,12 @@ async function dbxFolderSheet(path,ac){ac=ac||accts.find(a=>a.refresh);if(!ac){d
 let dbxSyncing=false;
 function dbxFolderOf(f,e){const rootSeg=(f.display||f.path).split('/').length;const segs=e.path_display.split('/');const mid=segs.slice(rootSeg,-1);return mid.length?mid.join('/'):f.name}
 async function dbxList(ac,f){let res=await dbxApi(ac,'files/list_folder',{path:f.id||f.path,recursive:true,limit:2000});let ents=res.entries;
-  while(res.has_more){res=await dbxApi(ac,'files/list_folder/continue',{cursor:res.cursor});ents=ents.concat(res.entries)}return ents}
+  while(res.has_more){res=await dbxApi(ac,'files/list_folder/continue',{cursor:res.cursor});ents=ents.concat(res.entries)}dbxCur[fkey(f)]=res.cursor;return ents}
+/* controllo continuo: mentre il player è aperto guardo ogni 20 secondi se in Dropbox è cambiato qualcosa (richiesta leggerissima) */
+const dbxCur={};
+setInterval(async()=>{if(document.hidden||dbxSyncing||!dbxOn())return;
+  for(const f of SET.dbxFolders){const k=fkey(f),c=dbxCur[k],ac=acctById(f.acct);if(!c||!ac||!ac.refresh)continue;
+    try{const r=await dbxApi(ac,'files/list_folder/continue',{cursor:c});if(r.entries&&r.entries.length){dbxSync(false);return}dbxCur[k]=r.cursor}catch(e){}}},20000);
 async function dbxSync(manual){if(dbxSyncing)return;
   const live=SET.dbxFolders.filter(f=>{const a=acctById(f.acct);return a&&a.refresh});if(!live.length)return;dbxSyncing=true;
   const P=$('prog'),PT=$('progT'),PB=$('progBar');if(manual){P.hidden=false;PT.textContent='Controllo Dropbox…';PB.style.width='15%'}
@@ -1591,11 +1596,11 @@ document.addEventListener('dragenter',e=>{if([...(e.dataTransfer?.types||[])].in
 document.addEventListener('dragleave',()=>{dragN=Math.max(0,dragN-1);if(!dragN)$('drop').hidden=true});
 document.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files'))e.preventDefault()});
 document.addEventListener('drop',async e=>{if(!e.dataTransfer||!e.dataTransfer.files.length)return;e.preventDefault();dragN=0;$('drop').hidden=true;importEntries(await entriesFromDrop(e.dataTransfer))});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();else{if(dbxOn()&&SET.dbxFolders.length&&Date.now()-(+ls.get('sp-dbx-last')||0)>60000)dbxSync(false);if(SET.gdRoot&&Date.now()-(+ls.get('sp-gd-last')||0)>60000)gdSync(false)}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();else{if(dbxOn()&&SET.dbxFolders.length&&Date.now()-(+ls.get('sp-dbx-last')||0)>15000)dbxSync(false);if(SET.gdRoot&&Date.now()-(+ls.get('sp-gd-last')||0)>60000)gdSync(false)}});
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010022852';
+const APP_VER='20261010023748';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
