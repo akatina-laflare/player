@@ -1507,9 +1507,9 @@ function jamConnect(since){const j=jam;if(!j)return;if(j.close)j.close();clearTi
 /* --- host --- */
 const jamMembers=()=>jam?Object.values(jam.peers).map(p=>p.n):[];
 function jamState(){const t=S.byId.get(S.curId);const q=t?upcoming(6).map(id=>S.byId.get(id)).filter(Boolean).map(x=>({k:jamKey(x),n:x.name})):[];
-  return{y:'st',k:t?jamKey(t):null,n:t?t.name:'',p:+(audio.currentTime||0).toFixed(2),pl:!!t&&!audio.paused,r:audio.playbackRate||1,q,m:jamMembers(),ctl:jam.ctl!==false}}
+  return{y:'st',k:t?jamKey(t):null,n:t?t.name:'',p:+(audio.currentTime||0).toFixed(2),pl:!!t&&!audio.paused,r:audio.playbackRate||1,q,m:jamMembers(),ctl:jam.ctl!==false,solo:jam.solo!==false}}
 function jamPush(force){if(!jamIsHost())return;if(force)jam.force=true;clearTimeout(jam.pt);const j=jam;
-  j.pt=setTimeout(()=>{if(jam!==j)return;const s=jamState();const sig=JSON.stringify([s.k,s.pl,s.q.map(x=>x.k),s.m,s.ctl,s.r]);
+  j.pt=setTimeout(()=>{if(jam!==j)return;const s=jamState();const sig=JSON.stringify([s.k,s.pl,s.q.map(x=>x.k),s.m,s.ctl,s.r,s.solo]);
     if(!j.force&&sig===j.sig)return;j.force=false;j.sig=sig;jamSend(s,j)},j.force?80:400)}
 function jamGo(id){const u=S.up.indexOf(id);if(u>=0){S.up.splice(u,1);load(id,true);return}
   const k=S.ctx.indexOf(id);if(k>=0){S.pos=k;load(id,true);return}S.up.unshift(id);next(false)}
@@ -1533,6 +1533,8 @@ function jamNeedTap(){if(!jam)return;jam.needTap=true;jamUI()}
 async function jamApply(){if(!jamIsGuest()||!jam.st)return;const s=jam.st,j=jam;
   if(Date.now()-s.ts>10*60e3&&!j.live){jamUI();return}  // stato vecchio: aspetto che l'host risponda
   j.live=true;j.quiet=Date.now()+1500;
+  /* "musica solo sul telefono di chi ha avviato la Jam": qui resta tutto sincronizzato ma senza suono */
+  if(audio.muted!==!!s.solo)audio.muted=!!s.solo;
   const t=s.k?jamFind(s.k,s.n):null;
   if(!t){j.missing=s.k?s.n:null;if(!audio.paused)audio.pause();jamUI();return}
   j.missing=null;
@@ -1573,20 +1575,22 @@ function jamUnlock(){/* sbloccare l'audio con un tocco: dopo, i brani della Jam 
     if(jam)jam.quiet=Date.now()+1500;audio.src=jamSilentUrl;
     audio.play().then(()=>{if(audio.src===jamSilentUrl){audio.pause();audio.removeAttribute('src');audio.load()}}).catch(()=>{})}catch(e){}}
 async function jamBegin(code,role,resume){if(jam)jamStop(false);const k=await jamKeys(code);
-  jam={code,role,topic:k.topic,key:k.key,peers:{},st:null,lastId:resume&&resume.lastId||null,ctl:role==='host'?SET.jamCtl!==false:true};
+  jam={code,role,topic:k.topic,key:k.key,peers:{},st:null,lastId:resume&&resume.lastId||null,ctl:role==='host'?SET.jamCtl!==false:true,solo:role==='host'?SET.jamSolo!==false:false};
   jamSave();jamConnect(jam.lastId||(role==='guest'?'latest':null));jamUI();if(S.curId)updateNow();
-  if(role==='host'){const s=jamState();s.ask=1;jam.sig=JSON.stringify([s.k,s.pl,s.q.map(x=>x.k),s.m,s.ctl,s.r]);jamSend(s)}else jamSend({y:'hi'})}
+  if(role==='host'){const s=jamState();s.ask=1;jam.sig=JSON.stringify([s.k,s.pl,s.q.map(x=>x.k),s.m,s.ctl,s.r,s.solo]);jamSend(s)}else jamSend({y:'hi'})}
 function jamStop(remote){if(!jam)return;const j=jam;if(!remote)jamSend({y:j.role==='host'?'end':'bye'},j);
   clearTimeout(j.rt);clearTimeout(j.pt);clearTimeout(j.at);setTimeout(()=>{if(j.close)j.close()},remote?0:1500);
-  jam=null;ls.del('sp-jam');if(S.ctxLabel==='Jam')S.ctxLabel='';jamUI();if(S.curId)updateNow()}
+  jam=null;ls.del('sp-jam');audio.muted=false;if(S.ctxLabel==='Jam')S.ctxLabel='';jamUI();if(S.curId)updateNow()}
 function jamBoot(){const m=location.hash.match(/jam=([A-Za-z0-9]{6})/);
   if(m){history.replaceState(null,'',location.pathname+location.search);setTimeout(()=>jamSheet(m[1].toUpperCase()),600);return}
   try{const r=JSON.parse(ls.get('sp-jam')||'null');if(r&&r.code&&Date.now()-r.at<6*3600e3){jamBegin(r.code,r.role,r).then(()=>{if(r.role==='guest'&&audio.paused)jamNeedTap()})}}catch(e){}}
 
 /* --- interfaccia --- */
 function jamLabel(){if(!jam)return'';if(jam.role==='host'){const m=jamMembers();return m.length?'Jam con '+m.join(', '):'Jam · codice '+jamFmt(jam.code)}
+  const solo=jam.st&&jam.st.solo,who=(jam.st&&jam.st.who)||'un amico';
+  if(solo&&jam.live)return jam.missing?`Suona da ${who}: «${jam.missing}»`:`Jam di ${who} · suona dal suo telefono`;
   if(jam.needTap)return'Tocca per ascoltare con la Jam';if(jam.missing)return`Non hai «${jam.missing}»: aspetto il prossimo`;
-  return jam.st&&jam.live?'Jam di '+(jam.st.who||'un amico'):'In attesa della Jam…'}
+  return jam.st&&jam.live?'Jam di '+who:'In attesa della Jam…'}
 function jamUI(){const on=!!jam;['jamBtn','navJam','jamNp'].forEach(i=>{const b=$(i);if(b)b.classList.toggle('on',on)});
   const p=$('jamPill');if(p){p.hidden=!on;if(on){p.querySelector('span').textContent=jamLabel();p.classList.toggle('warn',!!(jam.needTap||jam.missing))}}
   if(on&&S.curId)$('npFrom').textContent=jamLabel()}
@@ -1610,12 +1614,14 @@ function jamSheet(prefill){
     <div class="opts"><button class="opt" id="jamInv">${ICON.share}<span class="lbl">Invita un amico</span></button></div>
     <div class="sec">Chi c'è</div>
     <div class="opts">${people.map(([n,s])=>`<div class="opt">${ICON_JAM(20)}<span class="lbl">${esc(n)}${s?`<span class="s" style="display:block;margin-top:2px">${s}</span>`:''}</span></div>`).join('')}${host&&!jamMembers().length?'<div class="opt"><span class="lbl s" style="color:var(--muted)">Ancora nessuno: manda l\'invito</span></div>':''}</div>
+    ${host?`<div class="opts"><div class="opt"><span class="lbl">Musica solo su questo telefono<span class="s" style="display:block;margin-top:2px;white-space:normal">Gli altri vedono e comandano la musica, ma il suono esce solo da qui (anche in Bluetooth). Spegnilo per ascoltare ognuno dal suo telefono</span></span><button class="toggle" role="switch" id="tgJamSolo" aria-checked="${jam.solo!==false}" aria-label="Musica solo su questo telefono"></button></div></div>`:''}
     ${host?`<div class="opts"><div class="opt"><span class="lbl">Gli altri possono cambiare brano<span class="s" style="display:block;margin-top:2px;white-space:normal">Se lo spegni possono solo aggiungere brani alla coda</span></span><button class="toggle" role="switch" id="tgJamCtl" aria-checked="${jam.ctl!==false}" aria-label="Gli altri possono cambiare brano"></button></div></div>`:''}
     <div class="opts"><button class="opt danger" id="jamEnd"><span class="lbl">${host?'Termina la Jam':'Esci dalla Jam'}</span></button></div>
-    <p class="note">${host?'Chi entra sente quello che ascolti tu, nello stesso momento. Sull\'iPhone del tuo amico: apre il player dalla schermata Home › icona Jam › scrive il codice.':'Senti quello che ascolta chi ha avviato la Jam. Tocca un brano o aggiungilo alla coda dal menu ··· per proporlo.'}</p>`,
+    <p class="note">${host?'Sull\'iPhone del tuo amico: apre il player dalla schermata Home › icona Jam › scrive il codice.':(jam.st&&jam.st.solo?'La musica esce dal telefono di chi ha avviato la Jam: da qui vedi cosa suona e puoi metterla in pausa, cambiare brano o aggiungerne alla coda.':'Senti quello che ascolta chi ha avviato la Jam, nello stesso momento. Tocca un brano o aggiungilo alla coda dal menu ··· per proporlo.')}</p>`,
   el=>{el.querySelector('#jamInv').onclick=async()=>{const link=REDIR+'#jam='+jam.code;const text=`Entra nella mia Jam su Studio Player 🎧\nCodice: ${jamFmt(jam.code)}\n${link}`;
       try{if(navigator.share){await navigator.share({title:'Jam su Studio Player',text});return}}catch(e){if(e&&e.name==='AbortError')return}
       try{await navigator.clipboard.writeText(text);toast('Invito copiato')}catch(e){toast('Codice: '+jamFmt(jam.code),6000)}};
+    const ts=el.querySelector('#tgJamSolo');if(ts)ts.onclick=e=>{jam.solo=!(jam.solo!==false);SET.jamSolo=jam.solo;saveSet();e.currentTarget.setAttribute('aria-checked',String(jam.solo));jamPush(true)};
     const tg=el.querySelector('#tgJamCtl');if(tg)tg.onclick=e=>{jam.ctl=!(jam.ctl!==false);SET.jamCtl=jam.ctl;saveSet();e.currentTarget.setAttribute('aria-checked',String(jam.ctl));jamPush(true)};
     const end=el.querySelector('#jamEnd');end.onclick=()=>{if(host&&jamMembers().length&&!end.dataset.armed){end.dataset.armed='1';end.querySelector('.lbl').textContent='Tocca di nuovo: la Jam finisce per tutti';return}
       closeSheet();jamStop(false);toast(host?'Jam terminata':'Sei uscito dalla Jam')}})}
@@ -1694,7 +1700,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010141949';
+const APP_VER='20261010142352';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
