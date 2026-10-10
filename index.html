@@ -510,7 +510,7 @@ function paintFolderArt(el,f){const c=S.covers[f]||(S.tracks.find(t=>t.folder===
 function artPNG(t){const c=coverOf(t);if(c)return c;try{const cv=document.createElement('canvas');cv.width=cv.height=512;const x=cv.getContext('2d');const[p,q,r]=palette(t.name);
   x.fillStyle=r;x.fillRect(0,0,512,512);let g=x.createRadialGradient(128,100,0,128,100,330);g.addColorStop(0,p);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,512,512);
   g=x.createRadialGradient(435,410,0,435,410,360);g.addColorStop(0,q);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,512,512);
-  x.translate(148,148);x.scale(216/24,216/24);x.fillStyle=SET.coverStyle==='classica'?(darkNow()?'#636268':'#b3b3b8'):'rgba(255,255,255,.6)';
+  x.translate(186,180);x.scale(140/24,140/24);x.fillStyle=SET.coverStyle==='classica'?(darkNow()?'#636268':'#b3b3b8'):'rgba(255,255,255,.6)';
   x.fill(new Path2D('M19.2 3.1c.45-.1.8.2.8.65V15.4c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V7.6L10.4 9.05v8.6c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V5.85c0-.45.3-.8.75-.9z'));return cv.toDataURL('image/png')}catch(e){return''}}
 function imgToData(file,size=600){return new Promise(res=>{const u=URL.createObjectURL(file),img=new Image();
   img.onload=()=>{try{const s=Math.min(img.naturalWidth,img.naturalHeight);const c=document.createElement('canvas');c.width=c.height=size;
@@ -1600,7 +1600,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010023748';
+const APP_VER='20261010024824';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
