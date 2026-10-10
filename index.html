@@ -128,7 +128,7 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .card:active .art{transform:scale(.97)}
 
 .jampill{display:inline-flex;align-items:center;gap:8px;margin:0 0 10px;padding:6px 13px 6px 11px;border-radius:999px;background:var(--chip);color:var(--accent);font-size:14px;font-weight:600;max-width:100%}
-.jampill[hidden]{display:none}
+.jampill[hidden],.card-np[hidden]{display:none}
 .jampill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .jampill i{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;animation:jamDot 1.6s ease-in-out infinite}
 .jampill.warn{background:var(--accent);color:#fff}.jampill.warn i{background:#fff}
@@ -340,6 +340,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
   <div class="grid" id="grid" hidden></div>
 </div>
 
+<input type="file" id="upIn" class="vh" accept="audio/*,.wav,.aif,.aiff,.m4a,.mp3,.flac" multiple tabindex="-1" aria-hidden="true">
 <input type="file" id="fileIn" class="vh" accept="audio/*,.wav,.aif,.aiff,.m4a,.mp3,.flac" multiple tabindex="-1" aria-hidden="true">
 <input type="file" id="dirIn" class="vh" webkitdirectory multiple tabindex="-1" aria-hidden="true">
 <input type="file" id="coverIn" class="vh" accept="image/*" tabindex="-1" aria-hidden="true">
@@ -403,7 +404,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
       <span class="np-label" style="text-align:left">Dettagli file</span>
       <div class="kv" id="tech"></div>
     </div>
-    <div class="card-np notes">
+    <div class="card-np notes" hidden>
       <span class="np-label" style="text-align:left">Note di produzione</span>
       <textarea id="notes" placeholder="Testo, BPM, tonalità, cosa sistemare nel mix…"></textarea>
     </div>
@@ -950,7 +951,7 @@ let sheetClose=null;
 function openSheet(html,mount){const sh=$('sheet'),sc=$('scrim');$('sheetIn').innerHTML='<div class="grab"></div>'+html;sh.hidden=sc.hidden=false;
   requestAnimationFrame(()=>{sh.classList.add('show');sc.classList.add('show')});if(mount)mount($('sheetIn'));
   const f=$('sheetIn').querySelector('input.field');if(f)setTimeout(()=>f.focus(),250)}
-function parkInputs(){['fileIn','dirIn','coverIn'].forEach(id=>{const i=$(id);if(i&&i.parentNode!==document.body){i.className='vh';document.body.appendChild(i)}})}
+function parkInputs(){['fileIn','dirIn','coverIn','upIn'].forEach(id=>{const i=$(id);if(i&&i.parentNode!==document.body){i.className='vh';document.body.appendChild(i)}})}
 function mountPickers(el){el.querySelectorAll('label[for]').forEach(l=>{const i=$(l.getAttribute('for'));if(!i)return;l.classList.add('pick');i.className='';l.appendChild(i)})}
 function closeSheet(){const sh=$('sheet'),sc=$('scrim');sh.classList.remove('show');sc.classList.remove('show');setTimeout(()=>{if(!sh.classList.contains('show')){sh.hidden=sc.hidden=true;parkInputs();$('sheetIn').innerHTML=''}},300);if(sheetClose){const f=sheetClose;sheetClose=null;f()}}
 $('scrim').onclick=closeSheet;
@@ -1069,7 +1070,8 @@ const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='Mac
 function addSheet(){const dirOK=!IOS&&('webkitdirectory'in document.createElement('input'));
   openSheet(`<h2 class="sh-title">Aggiungi brani</h2>${GD_KEY?`<div class="opts"><button class="opt" id="addGd">${ICON.cloud}<span class="lbl">${SET.gdRoot?'Aggiorna da Google Drive':'Cartella Google Drive'}</span><span class="hint">${SET.gdRoot?esc(SET.gdRoot.name):'automatico'}</span></button></div>`:''}${DBX_KEY?`<div class="opts"><button class="opt" id="addDbx">${ICON.cloud}<span class="lbl">${!dbxOn()?'Collega Dropbox':!SET.dbxFolders.length?'Scegli la cartella Dropbox':'Aggiorna da Dropbox'}</span><span class="hint">${!dbxOn()?'automatico':SET.dbxFolders.length===1?esc(SET.dbxFolders[0].name):SET.dbxFolders.length?SET.dbxFolders.length+' cartelle':''}</span></button></div>`:''}<div class="opts">
     ${dirOK?`<label class="opt" for="dirIn" role="button">${ICON.folder}<span class="lbl">Scegli una cartella</span><span class="hint">importa tutto</span></label>`:''}
-    <label class="opt" for="fileIn" role="button">${ICON.file}<span class="lbl">Scegli i brani</span></label></div>
+    <label class="opt" for="fileIn" role="button">${ICON.file}<span class="lbl">Scegli i brani</span><span class="hint">solo su questo telefono</span></label></div>
+    ${dbxOn()&&SET.dbxFolders.length?`<div class="opts"><label class="opt" for="upIn" role="button">${ICON.cloud}<span class="lbl">Carica su Dropbox</span><span class="hint">li sentite tutti</span></label></div>`:''}
     <p class="note">${IOS?'Nel selettore apri la cartella dei tuoi bounce, tocca <b>Seleziona</b> in alto e poi <b>Seleziona tutto</b>: entrano tutti insieme, WAV compresi.':'Con "Scegli una cartella" entrano tutti i brani, anche quelli nelle sottocartelle. Puoi anche trascinare la cartella dentro la pagina.'} I brani già presenti vengono saltati.</p>`,
   el=>{mountPickers(el);const gb=el.querySelector('#addGd');if(gb)gb.onclick=()=>{closeSheet();if(SET.gdRoot)gdSync(true);else setTimeout(gdConnectSheet,320)};const d=el.querySelector('#addDbx');if(d)d.onclick=()=>{closeSheet();if(!dbxOn())dbxConnect(false);else if(!SET.dbxFolders.length)setTimeout(()=>dbxFolderSheet(''),320);else dbxSync(true)}})}
 function folderMenu(f){const ts=lib().filter(t=>t.folder===f);sheetOptions(lastSeg(f),[
@@ -1573,7 +1575,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010021329';
+const APP_VER='20261010021642';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -1585,6 +1587,40 @@ async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'|
 let updPending=false;
 audio.addEventListener('pause',()=>{if(updPending){updPending=false;checkUpdate(true)}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate(false)});
+
+/* ================= caricare brani su Dropbox dal player ================= */
+function dbxUploadPick(files){const list=[...files].filter(f=>isAudio({name:f.name,type:f.type||''}));
+  if(!list.length){toast('Scegli dei file audio');return}
+  const fs=SET.dbxFolders.filter(f=>{const a=acctById(f.acct);return a&&a.refresh});
+  if(!fs.length){toast('Collega prima una cartella Dropbox');return}
+  if(fs.length===1)return dbxUpload(fs[0],list);
+  sheetOptions('Carica in',fs.map(f=>({label:f.name+(accts.length>1?' · '+acctLabel(acctById(f.acct)):''),fn:()=>dbxUpload(f,list)})))}
+function dbxScopeSheet(){openSheet(`<h2 class="sh-title">Serve un permesso in più</h2>
+  <p class="note">Per caricare brani dal player, l'app Dropbox del player deve poter scrivere nella cartella. Va fatto una volta sola da chi ha creato l'app (Dario): <b>dropbox.com/developers/apps</b> › Studio Player › <b>Permissions</b> › spunta <b>files.content.write</b> › <b>Submit</b>.</p>
+  <p class="note">Poi ognuno tocca qui sotto <b>Ricollega Dropbox</b> e accetta.</p>
+  <div class="opts"><button class="opt" id="scRe">${ICON.cloud}<span class="lbl">Ricollega Dropbox</span></button></div>`,
+  el=>{el.querySelector('#scRe').onclick=()=>{closeSheet();dbxConnect(false)}})}
+let uploading=false;
+async function dbxUpload(f,list){if(uploading){toast('Sto già caricando, aspetta un attimo');return}uploading=true;const ac=acctById(f.acct);
+  const P=$('prog'),PT=$('progT'),PB=$('progBar');P.hidden=false;let ok=0,big=0,stop=null;
+  try{for(let i=0;i<list.length;i++){const file=list[i];PT.textContent=`Carico su Dropbox ${i+1} di ${list.length}: ${file.name}`;PB.style.width=(5+90*i/list.length)+'%';
+      if(file.size>150e6){big++;continue}
+      try{await dbxFetch(ac,'https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','Dropbox-API-Arg':hdrArg({path:(f.path||'')+'/'+file.name,mode:'add',autorename:true,mute:false})},body:file});ok++}
+      catch(e){const b=String(e.body||e.message||'');
+        if(/missing_scope|files\.content\.write/.test(b)){stop='scope';break}
+        if(/no_write_permission|insufficient_space|disallowed/.test(b)||e.status===403){stop=/insufficient_space/.test(b)?'space':'ro';break}
+        if(e.message==='nolink'){stop='link';break}
+        stop='net';break}}}
+  finally{uploading=false;PB.style.width='100%';setTimeout(()=>{P.hidden=true},400)}
+  if(ok)toast(ok===1?'1 brano caricato: arriva anche a chi condivide la cartella':`${ok} brani caricati: arrivano anche a chi condivide la cartella`,3500);
+  if(stop==='scope')dbxScopeSheet();
+  else if(stop==='ro')toast('Questa cartella è in sola lettura: chi l\'ha condivisa deve darti il permesso "Può modificare"',5000);
+  else if(stop==='space')toast('Dropbox è pieno: libera spazio e riprova',4500);
+  else if(stop==='link')toast('Ricollega Dropbox dalle impostazioni',3500);
+  else if(stop==='net')toast('Caricamento interrotto: controlla la connessione e riprova',4000);
+  if(big)toast(`${big} file troppo grandi (oltre 150 MB): esportali in AAC o MP3`,4500);
+  if(ok)dbxSync(true)}
+$('upIn').addEventListener('change',e=>{if(!$('sheet').hidden)closeSheet();const fl=[...(e.target.files||[])];e.target.value='';if(!fl.length){toast('Nessun file selezionato');return}dbxUploadPick(fl)});
 
 /* ================= app da installare (computer, Android) ================= */
 let instEvt=null;
