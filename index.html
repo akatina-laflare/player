@@ -68,6 +68,10 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .tools{display:flex;gap:8px;align-items:center}
 .search{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:var(--chip);border-radius:11px;padding:9px 11px;color:var(--muted)}
 .search input{flex:1;min-width:0;border:0;background:none;color:var(--fg);font:inherit;font-size:16px;outline:none}
+.search input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.qclr{flex:none;display:grid;place-items:center;width:22px;height:22px;margin:-4px -3px -4px 0;color:var(--muted);opacity:0;transform:scale(.4);pointer-events:none;transition:opacity .2s,transform .35s cubic-bezier(.34,1.56,.64,1)}
+.qclr.show{opacity:.75;transform:scale(1);pointer-events:auto}
+.qclr:active{opacity:.45;transform:scale(.88)}
 .sortb{display:flex;align-items:center;gap:6px;background:var(--chip);border-radius:11px;padding:9px 11px;color:var(--fg);font-size:14px;white-space:nowrap}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px}
 .pill{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--chip);color:var(--accent);font-weight:600;border-radius:12px;padding:12px}
@@ -397,7 +401,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
     <div class="tools">
       <label class="search">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="q" type="search" placeholder="Cerca titolo o cartella" autocomplete="off" enterkeyhint="search">
+        <input id="q" type="search" placeholder="Cerca titolo o cartella" autocomplete="off" enterkeyhint="search"><button class="qclr" id="qClr" type="button" aria-label="Cancella la ricerca" tabindex="-1"><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="var(--bg)" stroke-width="2" stroke-linecap="round"/></svg></button>
       </label>
       <button class="sortb" id="sortBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg><span id="sortL">Recenti</span></button>
     </div>
@@ -1176,7 +1180,7 @@ function folderMenu(f){const ts=lib().filter(t=>t.folder===f);sheetOptions(lastS
   {icon:ICON.image,label:'Cambia copertina della cartella',forId:'coverIn',fn:()=>{coverTarget={folder:f}}},
   ...(S.covers[f]?[{icon:ICON.undo,label:'Togli copertina della cartella',fn:async()=>{delete S.covers[f];await idb.del('meta','cover:'+f);render();updateNow()}}]:[]),
   ...(ts.some(t=>!t.demo)?[{icon:ICON.trash,label:`Elimina i ${ts.length} brani dal player`,danger:true,confirm:'Tocca di nuovo per eliminarli',fn:async()=>{const h=new Set(hiddenIds());ts.filter(t=>isCloud(t)).forEach(t=>h.add(t.id));ls.set('sp-hidden',JSON.stringify([...h]));await removeTracks(ts.map(t=>t.id),true);toast('Cartella eliminata dal player')}}]:[])])}
-function openFolder(f){S.tab='folder';S.folder=f;S.query='';$('q').value='';render();window.scrollTo(0,0)}
+function openFolder(f){S.tab='folder';S.folder=f;S.query='';$('q').value='';$('qClr').classList.remove('show');render();window.scrollTo(0,0)}
 
 
 /* ================= doppioni ================= */
@@ -1657,7 +1661,10 @@ $('list').addEventListener('touchcancel',()=>{if(lpT!=='done'){clearTimeout(lpT)
 $('list').addEventListener('touchend',e=>{if(lpT==='done')e.preventDefault();else clearTimeout(lpT);lpT=null});
 $('list').addEventListener('contextmenu',e=>{const r=e.target.closest('.row');if(r){e.preventDefault();trackMenu(r.dataset.id)}});
 document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a)return;if(a.dataset.act==='add')addSheet();if(a.dataset.act==='dedupe')dedupe(false);if(a.dataset.act==='goFolders'){S.tab='folders';S.folder=null;render();window.scrollTo(0,0)}});
-$('q').oninput=e=>{S.query=e.target.value;render()};
+const syncQ=()=>$('qClr').classList.toggle('show',!!$('q').value);
+$('q').oninput=e=>{S.query=e.target.value;syncQ();render()};
+$('qClr').addEventListener('pointerdown',e=>e.preventDefault());
+$('qClr').onclick=()=>{const q=$('q');q.value='';S.query='';syncQ();render();q.focus()};
 $('sortBtn').onclick=()=>sheetOptions('Ordina per',Object.entries(SORTS).map(([k,l])=>({label:l,sel:SET.sort===k,fn:()=>{SET.sort=k;saveSet();render()}})));
 $('playAll').onclick=()=>{if(!S.visible.length)return;if(S.shuffle){S.shuffle=false;syncModes()}startContext(S.visible,S.visible[0],$('h1').textContent)};
 $('shufAll').onclick=()=>{if(!S.visible.length)return;S.shuffle=true;syncModes();startContext(S.visible,S.visible[Math.floor(Math.random()*S.visible.length)],$('h1').textContent)};
@@ -1687,7 +1694,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010040918';
+const APP_VER='20261010141949';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
