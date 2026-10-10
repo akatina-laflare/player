@@ -109,10 +109,11 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .big.swap{animation:artIn .42s cubic-bezier(.2,.8,.2,1)}
 .mini.enter{animation:miniIn .35s cubic-bezier(.2,.8,.2,1)}
 .toast.show{animation:toastIn .25s ease-out}
-.ib,.pill,.chip,.card,.btn,.sw{transition:transform .15s ease}
-.ib:active,.pill:active,.chip:active,.btn:active{transform:scale(.9)}
-.ctrl .play:active{transform:scale(.86)}
-.row .art{transition:transform .2s ease}
+.ib,.pill,.chip,.card,.btn,.sw{transition:transform .28s cubic-bezier(.2,.8,.2,1),background .2s,opacity .2s}
+.ib:active,.pill:active,.chip:active,.btn:active{transform:scale(.94);transition-duration:.12s}
+.ctrl .play:active{transform:scale(.9)}
+.still .up-item{animation:none}
+.row .art{transition:transform .3s cubic-bezier(.2,.8,.2,1)}
 .row:active .art{transform:scale(.94)}
 .cover-note{width:42%;height:42%;color:rgba(255,255,255,.6)}
 :root{--cov-bg:#e9e9ec;--cov-note:#b3b3b8}
@@ -684,6 +685,9 @@ function render(){
   L.classList.toggle('anim',animate);if(animate)[...L.children].slice(0,18).forEach((r,i)=>r.style.animationDelay=(i*22)+'ms');
   L.querySelectorAll('[data-art]').forEach(el=>{const t=S.byId.get(el.dataset.art);paintArt(el,t);if(t.id===S.curId)el.insertAdjacentHTML('beforeend','<div class="bars"><i></i><i></i><i></i></div>')})}
 
+function markPlaying(){const L=$('list');if(!L||!L.querySelector('.row')){render();return}
+  L.querySelectorAll('.row').forEach(r=>{const on=r.dataset.id===S.curId;r.classList.toggle('playing',on);r.classList.toggle('paused',audio.paused);
+    const a=r.querySelector('[data-art]');if(!a)return;const b=a.querySelector('.bars');if(on&&!b)a.insertAdjacentHTML('beforeend','<div class="bars"><i></i><i></i><i></i></div>');else if(!on&&b)b.remove()})}
 /* ================= riproduzione ================= */
 async function blobFor(t,opt){if(t.blob)return t.blob;
   if(isCloud(t)){const b=await idb.get('blobs',t.id);if(b)return b;if(opt&&opt.fetch){try{return await cloudBlob(t)}catch(e){return null}}return null}if(t.demo){t.blob=await synth(t);const w=await parseWav(t.blob);if(w){t.peaks=await wavPeaks(t.blob,w);t.info={fmt:'WAV',bits:16,rate:w.rate,ch:w.ch,lossless:true}}return t.blob}
@@ -742,7 +746,7 @@ function startContext(ids,startId,label){S.ctxBase=[...ids];S.ctx=S.shuffle?shuf
 let loadToken=0;
 async function load(id,autoplay,at=0){if(jamHookLoad(id))return;const t=S.byId.get(id);if(!t)return;const my=++loadToken;const changed=S.curId!==id;S.curId=id;S.A=S.B=null;updateAB();
   const mini=$('mini');if(mini.hidden){mini.hidden=false;mini.classList.remove('enter');void mini.offsetWidth;mini.classList.add('enter')}
-  updateNow();render();if(changed){const b=$('bigArt');b.classList.remove('swap');void b.offsetWidth;b.classList.add('swap')}
+  updateNow();markPlaying();if(changed){const b=$('bigArt');b.classList.remove('swap');void b.offsetWidth;b.classList.add('swap')}
   const src=await srcFor(t);if(my!==loadToken)return;
   if(src==='__fail')return;
   if(audio.src===src&&autoplay){audio.play().catch(()=>{});return}
@@ -788,13 +792,24 @@ function abCheck(){if(S.A!=null&&S.B!=null&&audio.currentTime>=S.B){audio.curren
 
 /* ================= schermata di ascolto ================= */
 let scrub=null;
-function progress(){const t=S.byId.get(S.curId);const d=(isFinite(audio.duration)&&audio.duration)||(t&&t.duration)||0;const c=scrub!=null?scrub*d:(audio.currentTime||0);
+/* tempo "fluido": l'iPhone aggiorna currentTime a scatti, qui lo interpolo tra un aggiornamento e l'altro;
+   dopo uno spostamento tengo il punto scelto finché l'audio non ci arriva, così la barra non torna indietro */
+let stA=0,stW=0,stL=-1,seekHold=null;
+function smoothTime(){const ct=audio.currentTime||0,now=performance.now(),d=audio.duration||0;
+  if(seekHold){if(Math.abs(ct-seekHold.t)<.6||now>seekHold.until)seekHold=null;else return seekHold.t}
+  if(audio.paused||audio.seeking||audio.readyState<3){stA=ct;stW=now;stL=ct;return ct}
+  const r=audio.playbackRate||1,pred=stA+(now-stW)/1000*r;
+  if(ct!==stL){stL=ct;if(Math.abs(pred-ct)>.3){stA=ct;stW=now}else{stA=pred*.85+ct*.15;stW=now}}
+  const v=stA+(now-stW)/1000*r;return d?Math.min(d,v):v}
+function holdSeek(t){seekHold={t,until:performance.now()+2500};stA=t;stW=performance.now()}
+audio.addEventListener('seeked',()=>{stA=audio.currentTime||0;stW=performance.now()});
+function progress(){const t=S.byId.get(S.curId);const d=(isFinite(audio.duration)&&audio.duration)||(t&&t.duration)||0;const c=scrub!=null?scrub*d:smoothTime();
   $('cur').textContent=fmt(c);$('rem').textContent='-'+fmt(Math.max(0,d-c));$('miniProg').style.width=(d?c/d*100:0)+'%';
   $('wave').setAttribute('aria-valuetext',`${fmt(c)} di ${fmt(d)}`);
   if($('np').classList.contains('open'))drawWave(d?c/d:0);
   try{if(d&&navigator.mediaSession.setPositionState&&scrub==null)navigator.mediaSession.setPositionState({duration:d,position:Math.min(audio.currentTime||0,d),playbackRate:audio.playbackRate||1})}catch(e){}}
 function drawWave(frac){const t=S.byId.get(S.curId);if(!t)return;const d=audio.duration||t.duration||0;
-  if(frac==null)frac=d?(audio.currentTime||0)/d:0;$('pfill').style.width=(Math.min(1,Math.max(0,frac))*100)+'%';
+  if(frac==null)frac=d?smoothTime()/d:0;$('pfill').style.width=(Math.min(1,Math.max(0,frac))*100)+'%';
   const ab=$('pab');if(S.A!=null&&d){const a=S.A/d,b=(S.B!=null?S.B/d:frac);ab.hidden=false;ab.style.left=a*100+'%';ab.style.width=Math.max(.5,(b-a)*100)+'%'}else ab.hidden=true}
 function updateNow(){const t=S.byId.get(S.curId);if(!t)return;
   paintArt($('miniArt'),t);paintArt($('bigArt'),t);const c=coverOf(t);$('npBg').style.background=c?`url("${c}") center/cover`:gradient(t.name);
@@ -812,7 +827,9 @@ function updateNow(){const t=S.byId.get(S.curId);if(!t)return;
   if(i.lossless)kv.push(`<span class="tag ll" style="margin:0">Lossless</span>`);
   $('tech').innerHTML=kv.join('')+`<span style="flex-basis:100%;font-family:var(--font)">${esc(t.file)}${isCloud(t)?` · ${cloudName(t)}, ${t.offline?'scaricato sul telefono':'in streaming'}`:''}</span>`;
   progress();syncPlay();renderUpNext()}
+let upSig='';
 function renderUpNext(){jamPush();const box=$('upNext'),L=$('upList');if(!box)return;const ids=upcoming(4);box.hidden=!ids.length;
+  const sig=ids.map((id,i)=>id+(i<S.up.length?'q':'')+(cacheIdx[id]||(S.byId.get(id)||{}).offline||urls[id]?'r':'')).join(',');if(sig===upSig&&L.children.length)return;const fresh=!upSig||ids[0]!==upSig.split(',')[0].replace(/[qr]+$/,'');upSig=sig;L.classList.toggle('still',!fresh);
   L.innerHTML=ids.map((id,i)=>{const t=S.byId.get(id);if(!t)return'';const q=i<S.up.length;return`<button class="up-item" data-up="${i}" style="animation-delay:${i*40}ms"><div class="art" data-a="${id}"></div><div class="txt"><div class="t">${esc(t.name)}</div><div class="s">${q?'<span class="q">In coda · </span>':''}${esc(lastSeg(t.folder))}${t.duration?' · '+fmt(t.duration):''}</div></div>${cacheIdx[id]||t.offline||urls[id]?'<span class="s" title="Pronto">'+ICON.down+'</span>':''}</button>`}).join('');
   L.querySelectorAll('[data-a]').forEach(a=>paintArt(a,S.byId.get(a.dataset.a)));
   L.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>jumpTo(+b.dataset.up))}
@@ -836,11 +853,14 @@ function showBubble(){const b=$('bubble'),r=wv.getBoundingClientRect(),d=audio.d
   b.hidden=true;$('scrubHint').textContent=sd&&sd.speed<1?(sd.speed===.5?'Scorrimento lento':'Scorrimento fine'):'';$('bubT').textContent=fmt((scrub||0)*d);$('bubS').textContent=sd&&sd.speed<1?(sd.speed===.5?'Scorrimento lento':'Scorrimento fine'):'';
   const x=Math.min(r.width-40,Math.max(40,(scrub||0)*r.width));b.style.left=x+'px'}
 zone.addEventListener('pointerdown',e=>{if(!S.curId)return;e.preventDefault();try{zone.setPointerCapture(e.pointerId)}catch(x){}
-  scrub=wfrac(e);sd={x:e.clientX,y:e.clientY,f:scrub,speed:1,w:wv.getBoundingClientRect().width};zone.classList.add('active');progress();showBubble()});
+  const d=audio.duration||(S.byId.get(S.curId)||{}).duration||0;const cur=d?Math.min(1,smoothTime()/d):wfrac(e);
+  scrub=cur;sd={x:e.clientX,y:e.clientY,f:cur,speed:1,w:wv.getBoundingClientRect().width,t0:performance.now(),tap:wfrac(e),moved:false};zone.classList.add('active');progress();showBubble()});
 zone.addEventListener('pointermove',e=>{if(scrub==null||!sd)return;const dy=Math.abs(e.clientY-sd.y);const sp=dy>140?.25:dy>70?.5:1;
+  if(Math.abs(e.clientX-sd.x)>4||dy>6)sd.moved=true;
   if(sp!==sd.speed){sd.f=scrub;sd.x=e.clientX;sd.speed=sp}
-  scrub=Math.min(1,Math.max(0,sd.f+(e.clientX-sd.x)/sd.w*sp));progress();showBubble()});
-const endScrub=()=>{if(scrub==null)return;const d=audio.duration||0;if(d){try{audio.currentTime=Math.min(d-.05,scrub*d)}catch(x){}}scrub=null;sd=null;zone.classList.remove('active');$('bubble').hidden=true;$('scrubHint').textContent='';progress()};
+  scrub=Math.min(1,Math.max(0,sd.f+(e.clientX-sd.x)/sd.w*sp));if(!sd.raf)sd.raf=requestAnimationFrame(()=>{if(sd)sd.raf=0;progress();showBubble()})});
+const endScrub=()=>{if(scrub==null)return;const d=audio.duration||0;if(sd&&!sd.moved&&performance.now()-sd.t0<350)scrub=sd.tap;
+  if(d){const t=Math.min(d-.05,scrub*d);holdSeek(t);try{audio.currentTime=t}catch(x){}}scrub=null;sd=null;zone.classList.remove('active');$('bubble').hidden=true;$('scrubHint').textContent='';progress()};
 zone.addEventListener('pointerup',endScrub);zone.addEventListener('pointercancel',endScrub);zone.addEventListener('lostpointercapture',endScrub);
 wv.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){audio.currentTime=Math.min(audio.duration||0,audio.currentTime+5);e.preventDefault()}if(e.key==='ArrowLeft'){audio.currentTime=Math.max(0,audio.currentTime-5);e.preventDefault()}});
 window.addEventListener('resize',()=>drawWave());
@@ -1575,7 +1595,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010022528';
+const APP_VER='20261010022852';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
