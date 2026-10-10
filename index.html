@@ -360,6 +360,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
       <div class="art" id="miniArt"></div>
       <div class="txt"><div class="t" id="miniT"></div><div class="s" id="miniS"></div></div>
     </button>
+    <button class="ib" id="miniPrev" aria-label="Brano precedente"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M21 6v12l-8.5-6zM12 6v12l-8.5-6z"/></svg></button>
     <button class="ib" id="miniPlay" aria-label="Riproduci o metti in pausa"></button>
     <button class="ib" id="miniNext" aria-label="Brano successivo"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6v12l8.5-6zM12 6v12l8.5-6z"/></svg></button>
   </div>
@@ -1589,7 +1590,7 @@ $('addBtn').onclick=addSheet;$('setBtn').onclick=settingsSheet;
 const fromInput=files=>[...files].map(f=>({file:f,path:f.webkitRelativePath||f.name}));
 $('fileIn').addEventListener('change',e=>{if(!$('sheet').hidden)closeSheet();const l=fromInput(e.target.files||[]);e.target.value='';if(!l.length){toast('Nessun file selezionato');return}importEntries(l)});
 $('dirIn').addEventListener('change',e=>{if(!$('sheet').hidden)closeSheet();const l=fromInput(e.target.files||[]);e.target.value='';if(!l.length){toast('La cartella è vuota o il telefono non permette di sceglierla: usa "Scegli i brani"',4500);return}importEntries(l)});
-$('miniPlay').onclick=$('play').onclick=toggle;$('miniNext').onclick=$('next').onclick=()=>next(false);$('prev').onclick=prev;
+$('miniPlay').onclick=$('play').onclick=toggle;$('miniNext').onclick=$('next').onclick=()=>next(false);$('prev').onclick=$('miniPrev').onclick=prev;
 $('openNp').onclick=openNp;$('closeNp').onclick=closeNp;document.querySelector('#npIn > .grab').addEventListener('click',closeNp);$('queueBtn').onclick=queueSheet;
 $('npFav').onclick=()=>{const t=S.byId.get(S.curId);if(t)setFav(t,!t.fav)};
 $('npShare').onclick=()=>{const t=S.byId.get(S.curId);if(t)shareTrack(t)};
@@ -1611,7 +1612,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010030656';
+const APP_VER='20261010031306';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
