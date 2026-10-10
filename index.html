@@ -1076,7 +1076,7 @@ function openFolder(f){S.tab='folder';S.folder=f;S.query='';$('q').value='';rend
 
 /* ================= doppioni ================= */
 const normName=n=>String(n||'').toLowerCase().normalize('NFC').replace(/\.[a-z0-9]+$/,'').replace(/[_\s]+/g,' ').replace(/\s*(\(\d+\)|copia|copy)$/,'').trim();
-const srcRank=t=>t.src==='gd'?3:t.src==='dbx'?2:1;
+const srcRank=t=>t.src==='dbx'?3:t.src==='gd'?2:1;
 function findDupes(){const groups=new Map();
   for(const t of S.tracks){if(t.demo)continue;const k=normName(t.file||t.name)+'|'+lastSeg(t.folder||'').toLowerCase();if(!groups.has(k))groups.set(k,[]);groups.get(k).push(t)}
   const out=[];for(const g of groups.values())if(g.length>1){g.sort((a,b)=>srcRank(b)-srcRank(a)||(b.offline?1:0)-(a.offline?1:0));const keep=g[0];
@@ -1143,7 +1143,7 @@ function gdSettingsMount(el){const g=k=>el.querySelector(k);
     try{if(navigator.share){await navigator.share({title:'Studio Player',text:'Ascolta i nostri pezzi',url:link});return}}catch(e){if(e&&e.name==='AbortError')return}
     try{await navigator.clipboard.writeText(link);toast('Link copiato')}catch(e){toast(link,6000)}};
   const off=g('#gdOff');if(off)off.onclick=async()=>{if(!off.dataset.armed){off.dataset.armed='1';off.querySelector('.lbl').textContent='Tocca di nuovo: i brani di Drive spariscono dal player';return}
-    closeSheet();delete SET.gdRoot;saveSet();await removeTracks(S.tracks.filter(t=>t.src==='gd').map(t=>t.id),true);toast('Google Drive scollegato')}}
+    closeSheet();delete SET.gdRoot;saveSet();await removeTracks(S.tracks.filter(t=>t.src==='gd').map(t=>t.id),true);ls.set('sp-hidden',JSON.stringify(hiddenIds().filter(x=>!String(x).startsWith('dbx:'))));toast('Google Drive scollegato');if(SET.dbxFolders&&SET.dbxFolders.length)dbxSync(true)}}
 async function gdBoot(){const q=new URLSearchParams(location.search);const id=q.get('gd');
   if(id){history.replaceState(null,'',REDIR);if(!SET.gdRoot||SET.gdRoot.id!==id){if(SET.gdRoot)await removeTracks(S.tracks.filter(t=>t.src==='gd').map(t=>t.id),true);await gdUse(id);return}}
   if(SET.gdRoot)gdSync(false)}
@@ -1567,7 +1567,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010014259';
+const APP_VER='20261010020802';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -1602,6 +1602,8 @@ function installBar(){if(!instEvt||$('instBar')||isApp())return;const d=document
   try{const r=JSON.parse(ls.get('sp-resume')||'null');if(r&&S.byId.has(r.id)){S.ctx=(r.ctx||[]).filter(id=>S.byId.has(id));if(!S.ctx.includes(r.id))S.ctx=[r.id];S.ctxBase=[...S.ctx];S.pos=S.ctx.indexOf(r.id);S.ctxLabel=r.label||'';
     S.curId=r.id;lastPos=r.t||0;$('mini').hidden=false;updateNow();render();
     const t=S.byId.get(r.id),d=t.duration||0;$('miniProg').style.width=(d?lastPos/d*100:0)+'%';$('cur').textContent=fmt(lastPos);$('rem').textContent='-'+fmt(d-lastPos)}}catch(e){}
+  /* ora Dropbox vince sui doppioni: i brani Dropbox nascosti come doppioni di Drive tornano visibili (una volta sola) */
+  if(SET.dedupeV!==2){SET.dedupeV=2;saveSet();const h=hiddenIds();if(h.some(x=>String(x).startsWith('dbx:')))ls.set('sp-hidden',JSON.stringify(h.filter(x=>!String(x).startsWith('dbx:'))))}
   jamBoot();
   await gdBoot();
   await dbxBoot();
