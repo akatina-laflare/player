@@ -1074,8 +1074,6 @@ async function settingsSheet(){
     <div class="sec">Copertine</div>
     ${seg('coverStyle',[['classica','Classica'],['tinta','Colori'],['grafite','Grafite']])}
     <p class="note">Se nella cartella c'è un'immagine (per esempio cover.jpg) diventa la copertina di tutti i brani della cartella. Puoi sempre cambiarla dal menu ··· di un brano o di una cartella.</p>
-    <div class="sec">Libreria</div>
-    <div class="opts"><div class="opt"><span class="lbl">Mostra formato e qualità</span><button class="toggle" role="switch" id="tgTech" aria-checked="${SET.tech}" aria-label="Mostra formato e qualità"></button></div></div>
     <div class="sec">Ascolto veloce</div>
     <div class="segs" id="cacheSeg">${CACHE_OPTS.map(([v,l])=>`<button data-mb="${v}" aria-pressed="${(SET.cacheMB==null?1024:SET.cacheMB)===v}">${l}</button>`).join('')}</div>
     <div class="opts"><div class="opt"><span class="lbl">Brani pronti sul telefono<span class="s" style="display:block;margin-top:2px">${Object.keys(cacheIdx).length} brani · ${fmtSize(cacheUsed())}</span></span>${Object.keys(cacheIdx).length?'<button class="acc" id="cacheClr" style="font-size:15px">Svuota</button>':''}</div></div>
@@ -1091,7 +1089,6 @@ async function settingsSheet(){
     ${mine.length?`<div class="sec">Dati</div><div class="opts"><button class="opt danger" id="wipe"><span class="lbl">Rimuovi tutti i brani dal player</span></button></div><p class="note">Cancella solo le copie salvate sul telefono. I file su iCloud e su Dropbox non vengono toccati.</p>`:''}`,
   el=>{el.querySelectorAll('.segs').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{SET[sg.dataset.key]=b.dataset.v;saveSet();applySettings();sg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));render();updateNow()}));
     el.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>{SET.accent=b.dataset.acc;saveSet();applySettings();el.querySelectorAll('[data-acc]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});
-    el.querySelector('#tgTech').onclick=e=>{SET.tech=!SET.tech;saveSet();applySettings();e.currentTarget.setAttribute('aria-checked',String(SET.tech));render()};
     const p=el.querySelector('#persist');if(p)p.onclick=async()=>{let ok=false;try{ok=await navigator.storage.persist()}catch(e){}toast(ok?'Brani protetti':'Il browser non lo permette qui: aggiungi il player alla schermata Home');if(ok)settingsSheet()};
     dbxSettingsMount(el);gdSettingsMount(el);const ib=el.querySelector('#instBtn');if(ib)ib.onclick=()=>{closeSheet();doInstall()};const ub=el.querySelector('#updBtn');if(ub)ub.onclick=()=>{closeSheet();checkUpdate(true)};
     const gst=el.querySelector('#gdStatus');if(gst){const t=S.tracks.find(x=>x.src==='gd');const t0=Date.now();
@@ -1620,7 +1617,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010033235';
+const APP_VER='20261010035318';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
