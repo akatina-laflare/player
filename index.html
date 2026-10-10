@@ -751,7 +751,7 @@ async function srcFor(t){if(isCloud(t)&&!urls[t.id]&&!t.offline){const c=await c
 function shuffled(ids,first){const a=ids.filter(i=>i!==first);for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}if(first)a.unshift(first);return a}
 function startContext(ids,startId,label){S.ctxBase=[...ids];S.ctx=S.shuffle?shuffled(ids,startId):[...ids];S.pos=Math.max(0,S.ctx.indexOf(startId));S.ctxLabel=label||'';load(S.ctx[S.pos],true)}
 let loadToken=0;
-async function load(id,autoplay,at=0){if(jamHookLoad(id))return;const t=S.byId.get(id);if(!t)return;const my=++loadToken;const changed=S.curId!==id;S.curId=id;S.A=S.B=null;updateAB();
+async function load(id,autoplay,at=0){if(jamHookLoad(id))return;seekHold=null;const t=S.byId.get(id);if(!t)return;const my=++loadToken;const changed=S.curId!==id;S.curId=id;S.A=S.B=null;updateAB();
   const mini=$('mini');if(mini.hidden){mini.hidden=false;mini.classList.remove('enter');void mini.offsetWidth;mini.classList.add('enter')}
   updateNow();markPlaying();if(changed){const b=$('bigArt');b.classList.remove('swap');void b.offsetWidth;b.classList.add('swap')}
   const src=await srcFor(t);if(my!==loadToken)return;
@@ -916,24 +916,28 @@ function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false,vx=0,lx=0,
   const ripple=fwd=>{const r=big.getBoundingClientRect(),w=document.createElement('div');w.className='swrip';
     Object.assign(w.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',borderRadius:getComputedStyle(big).borderRadius});
     w.innerHTML=`<i style="left:${fwd?86:14}%"></i>`;document.body.appendChild(w);setTimeout(()=>w.remove(),750)};
-  const FULL=()=>Math.max(110,big.clientWidth*.42),SMALL=24;
-  const kind=(dx,v)=>{const a=Math.abs(dx),F=FULL();return a>=F||(a>=F*.75&&Math.abs(v)>1.4)?'track':a>=SMALL?'seek':null};
+  /* il cambio brano arriva solo trascinando oltre il 60% della copertina: tutto il resto sono ±5 secondi */
+  const FULL=()=>Math.max(170,big.clientWidth*.6),SMALL=22;
+  const kind=(dx)=>{const a=Math.abs(dx);return a>=FULL()?'track':a>=SMALL?'seek':null};
   const follow=dx=>{const F=FULL(),a=Math.abs(dx),sg=Math.sign(dx);const tx=a<F?dx*.85:sg*(F*.85+(a-F)*.55);
     big.style.transform=`translateX(${tx}px) rotate(${tx/55}deg) scale(${Math.max(.94,1-Math.abs(tx)/2200)})`;big.style.opacity=a<F?'':String(Math.max(.55,1-(a-F)/300))};
   const springBack=()=>{big.classList.remove('slide');big.classList.add('spring');big.style.transform='';big.style.opacity='';setTimeout(()=>big.classList.remove('spring'),620)};
-  const seekBy=s=>{if(!audio.src||audio.readyState<1){toast('Fai partire il brano per spostarti');return false}const d=audio.duration||0;
-    try{audio.currentTime=Math.max(0,Math.min(d?d-.2:1e9,(audio.currentTime||0)+s))}catch(e){}progress();return true};
+  /* più scorrimenti di fila si sommano (+5, +10, +15…) partendo dal punto già scelto, non da dove l'audio è arrivato */
+  const acc={sum:0,base:0,at:0};
+  const seekBy=s=>{if(!audio.src||audio.readyState<1){toast('Fai partire il brano per spostarti');return 0}const d=audio.duration||0,now=performance.now();
+    if(now-acc.at<1400){acc.sum+=s}else{acc.sum=s;acc.base=smoothTime()}acc.at=now;
+    const t=Math.max(0,Math.min(d?d-.2:1e9,acc.base+acc.sum));holdSeek(t);try{audio.currentTime=t}catch(e){}progress();return acc.sum||s};
   const goTrack=d=>{const w=big.clientWidth+80;big.classList.remove('spring');big.classList.add('slide');set(d>0?-w:w,'0');
       setTimeout(()=>{big.classList.remove('slide');big.style.transform=`translateX(${d>0?w*.6:-w*.6}px) scale(.88)`;big.style.opacity='0';
-        if(d>0)next(false);else{if(audio.currentTime>3)audio.currentTime=0;prev()}
+        if(d>0)next(false);else if(S.ctx.length&&S.pos>0){S.pos--;load(S.ctx[S.pos],true)}else{holdSeek(0);audio.currentTime=0}
         requestAnimationFrame(()=>requestAnimationFrame(()=>{big.classList.add('spring');big.style.transform='';big.style.opacity='';setTimeout(()=>big.classList.remove('spring'),620)}))},230)};
-  swipeable(big,{th:70,move:dx=>{big.classList.remove('spring');follow(dx);showZone(kind(dx,0),dx)},
+  swipeable(big,{th:70,move:dx=>{big.classList.remove('spring');follow(dx);showZone(kind(dx),dx)},
     reset:()=>{springBack();showZone(null)},
-    end:(dx,v)=>{const k=kind(dx,v);if(k==='track'){showZone(null);goTrack(dx<0?1:-1);return}
+    end:(dx)=>{const k=kind(dx);if(k==='track'){showZone(null);goTrack(dx<0?1:-1);return}
       springBack();if(k!=='seek'){showZone(null);return}
-      const sv=dx<0?5:-5;if(!seekBy(sv)){showZone(null);return}ripple(sv>0);
-      if(swz!=='seek')showZone('seek',dx);hint.classList.remove('pop');void hint.offsetWidth;hint.classList.add('out');
-      hintT=setTimeout(()=>{hint.classList.remove('show','out','pop');swz=null},720)},
+      const sv=dx<0?5:-5,tot=seekBy(sv);if(!tot){showZone(null);return}ripple(sv>0);
+      if(swz!=='seek')showZone('seek',dx);hint.innerHTML=`${tot>0?FF:RW}<b>${tot>0?'+':'−'}${Math.abs(tot)} s</b>`;place(hint);hint.classList.add('show');hint.classList.remove('pop','out');void hint.offsetWidth;hint.classList.add('out');
+      clearTimeout(hintT);hintT=setTimeout(()=>{hint.classList.remove('show','out','pop');swz=null},720)},
     go:goTrack});
   const mini=$('openNp');
   swipeable(mini,{th:50,move:dx=>{mini.style.transform=`translateX(${dx*.6}px)`;mini.style.opacity=String(Math.max(.3,1-Math.abs(dx)/300))},
@@ -1607,7 +1611,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010030035';
+const APP_VER='20261010030656';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
