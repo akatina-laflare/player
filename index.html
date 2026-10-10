@@ -155,7 +155,9 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .swrip i{position:absolute;top:50%;width:150%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.42),rgba(255,255,255,0) 68%);transform:translate(-50%,-50%) scale(0);animation:swRip .7s cubic-bezier(.2,.8,.2,1) forwards}
 @keyframes swRip{60%{opacity:1}to{transform:translate(-50%,-50%) scale(1);opacity:0}}
 .big.spring{transition:transform .58s cubic-bezier(.34,1.56,.64,1),opacity .3s ease}
-html,body{touch-action:manipulation}
+html,body{touch-action:manipulation;overflow-x:hidden;max-width:100%}
+.list,.wrap{overflow-x:clip}
+.row{overflow:hidden}
 button,a,label,.row,.card,.opt,.chip,.ib{touch-action:manipulation}
 .dupbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--chip);border-radius:14px;padding:10px 10px 10px 14px;margin:10px 0 4px}
 .dupbar span{display:flex;align-items:center;gap:8px;min-width:0;font-size:14px}
@@ -1685,7 +1687,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010040545';
+const APP_VER='20261010040918';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
