@@ -668,7 +668,7 @@ function render(){
   if(S.tab==='folders'){
     L.innerHTML='';L.hidden=true;FH.hidden=true;$('songTools').hidden=true;G.hidden=false;const fs=folders();
     $('count').textContent=fs.length?`${fs.length} ${fs.length===1?'cartella':'cartelle'}`:'';
-    G.innerHTML=`<button class="card add" data-act="add"><div class="art"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div><div class="t">Aggiungi</div><div class="s">Cartella o brani</div></div></button>`+fs.map(o=>`<button class="card" data-folder="${esc(o.f)}"><div class="art" data-fart="${esc(o.f)}"></div><div><div class="t">${esc(lastSeg(o.f))}</div><div class="s">${o.ts.length} ${o.ts.length===1?'brano':'brani'} · ${fmtLong(o.dur)}</div></div></button>`).join('');
+    G.innerHTML=`<button class="card add" data-act="add"><div class="art"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div><div class="t">Aggiungi</div><div class="s">Cartella o brani</div></div></button>`+fs.map(o=>`<button class="card" data-folder="${esc(o.f)}"><div class="art" data-fart="${esc(o.f)}"></div><div><div class="t">${esc(lastSeg(o.f))}</div><div class="s">${o.ts.length} ${o.ts.length===1?'brano':'brani'}</div></div></button>`).join('');
     G.classList.toggle('anim',animate);if(animate)[...G.children].slice(0,18).forEach((c,i)=>c.style.animationDelay=(i*35)+'ms');
     G.querySelectorAll('[data-fart]').forEach(el=>paintFolderArt(el,el.dataset.fart));return}
   G.hidden=true;L.hidden=false;$('songTools').hidden=false;
@@ -677,7 +677,7 @@ function render(){
     FH.innerHTML=`<div class="art" id="fArt"></div><div class="info">${S.folder.includes('/')?`<div class="path">${esc(S.folder.split('/').slice(0,-1).join(' › '))}</div>`:''}</div>`;
     paintFolderArt($('fArt'),S.folder)}else FH.hidden=true;
   const tot=v.reduce((s,t)=>s+(t.duration||0),0),size=v.reduce((s,t)=>s+(t.size||0),0);
-  $('count').textContent=v.length?`${v.length} ${v.length===1?'brano':'brani'} · ${fmtLong(tot)}${size?' · '+fmtSize(size):''}`:'';
+  $('count').textContent=v.length?`${v.length} ${v.length===1?'brano':'brani'}`:'';
   $('playAll').disabled=$('shufAll').disabled=!v.length;
   L.innerHTML=v.length?v.map(rowHTML).join(''):`<li class="none">${S.query?'Nessun brano corrisponde alla ricerca.':S.tab==='favs'?'Nessun preferito: tocca il cuore su un brano per aggiungerlo qui.':'Nessun brano.'}</li>`;
   if(dbxOn())setTimeout(()=>warmLinks(S.visible.slice(0,25)),400);
@@ -1575,7 +1575,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010021642';
+const APP_VER='20261010022528';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
