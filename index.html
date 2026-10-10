@@ -79,7 +79,14 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .fhead .path{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
 
 .list{list-style:none;margin:6px 0 0;padding:0}
-.row{display:flex;align-items:center;gap:12px;width:100%;padding:7px 0;cursor:pointer;border-radius:8px}
+.row{display:flex;align-items:center;gap:12px;width:100%;padding:7px 0;cursor:pointer;border-radius:8px;position:relative;touch-action:pan-y}
+.row>.art,.row>.meta{transform:translateX(var(--sx,0px));transition:transform .45s cubic-bezier(.34,1.4,.64,1)}
+.row.swiping>.art,.row.swiping>.meta{transition:none}
+.row .qbg{position:absolute;left:0;top:4px;bottom:4px;width:0;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;opacity:0;pointer-events:none;overflow:hidden}
+.row .qbg.back{transition:width .45s cubic-bezier(.34,1.4,.64,1),opacity .35s ease}
+.row .qbg svg{width:22px;height:22px;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.row .qbg.arm svg{transform:scale(1.25)}
+.row .qbg.done{transition:opacity .5s ease .25s;opacity:0!important}
 .row:active{background:var(--chip)}
 .art{position:relative;overflow:hidden;display:grid;place-items:center;background-size:cover;background-position:center}
 .row .art{width:50px;height:50px;border-radius:7px;flex:none}
@@ -910,7 +917,7 @@ function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false,vx=0,lx=0,
     Object.assign(w.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',borderRadius:getComputedStyle(big).borderRadius});
     w.innerHTML=`<i style="left:${fwd?86:14}%"></i>`;document.body.appendChild(w);setTimeout(()=>w.remove(),750)};
   const FULL=()=>Math.max(110,big.clientWidth*.42),SMALL=24;
-  const kind=(dx,v)=>{const a=Math.abs(dx);return a>=FULL()||(a>70&&Math.abs(v)>.75)?'track':a>=SMALL?'seek':null};
+  const kind=(dx,v)=>{const a=Math.abs(dx),F=FULL();return a>=F||(a>=F*.75&&Math.abs(v)>1.4)?'track':a>=SMALL?'seek':null};
   const follow=dx=>{const F=FULL(),a=Math.abs(dx),sg=Math.sign(dx);const tx=a<F?dx*.85:sg*(F*.85+(a-F)*.55);
     big.style.transform=`translateX(${tx}px) rotate(${tx/55}deg) scale(${Math.max(.94,1-Math.abs(tx)/2200)})`;big.style.opacity=a<F?'':String(Math.max(.55,1-(a-F)/300))};
   const springBack=()=>{big.classList.remove('slide');big.classList.add('spring');big.style.transform='';big.style.opacity='';setTimeout(()=>big.classList.remove('spring'),620)};
@@ -1600,7 +1607,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010025406';
+const APP_VER='20261010030035';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -1646,6 +1653,28 @@ async function dbxUpload(f,list){if(uploading){toast('Sto già caricando, aspett
   if(big)toast(`${big} file troppo grandi (oltre 150 MB): esportali in AAC o MP3`,4500);
   if(ok)dbxSync(true)}
 $('upIn').addEventListener('change',e=>{if(!$('sheet').hidden)closeSheet();const fl=[...(e.target.files||[])];e.target.value='';if(!fl.length){toast('Nessun file selezionato');return}dbxUploadPick(fl)});
+
+/* scorri un brano verso destra per metterlo in coda (come su Spotify) */
+(()=>{const L=$('list');let st=null;
+  const QI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h12M4 12h12M4 18h7"/><path d="M18 14v6M15 17h6"/></svg>';
+  const reset=r=>{r.classList.remove('swiping');r.style.setProperty('--sx','0px')};
+  L.addEventListener('touchstart',e=>{const r=e.target.closest('.row');if(!r||e.target.closest('[data-more]')){st=null;return}const t=e.touches[0];st={r,x:t.clientX,y:t.clientY,dir:null,dx:0,arm:false,bg:null}},{passive:true});
+  L.addEventListener('touchmove',e=>{if(!st)return;const t=e.touches[0],dx=t.clientX-st.x,dy=t.clientY-st.y;
+    if(!st.dir&&(Math.abs(dx)>10||Math.abs(dy)>10))st.dir=Math.abs(dx)>Math.abs(dy)*1.3&&dx>0?'h':'v';
+    if(st.dir!=='h')return;
+    if(!st.bg){st.bg=document.createElement('div');st.bg.className='qbg';st.bg.innerHTML=QI;st.r.prepend(st.bg);st.r.classList.add('swiping')}
+    const TH=Math.min(110,st.r.clientWidth*.3),x=Math.max(0,dx),vis=x<TH?x:TH+(x-TH)*.35;st.dx=x;
+    st.r.style.setProperty('--sx',vis+'px');st.bg.style.width=Math.max(0,vis-6)+'px';st.bg.style.opacity=String(Math.min(1,x/(TH*.6)));
+    const arm=x>=TH;if(arm!==st.arm){st.arm=arm;st.bg.classList.toggle('arm',arm);if(arm)try{navigator.vibrate&&navigator.vibrate(8)}catch(z){}}},{passive:true});
+  const end=()=>{if(!st)return;const s0=st;st=null;if(s0.dir!=='h'){return}
+    s0.r.dataset.swiped='1';setTimeout(()=>{delete s0.r.dataset.swiped},400);reset(s0.r);
+    if(s0.arm){const id=s0.r.dataset.id,t=S.byId.get(id);
+      if(!jamQueue(id,false)){S.up.push(id);if(!S.curId)next(false);renderUpNext();setTimeout(preloadNext,300);toast(t?'In coda: '+t.name:'Aggiunto in coda',1800)}
+      if(s0.bg)s0.bg.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>'}
+    if(s0.bg){const bg=s0.bg;bg.classList.add('back');requestAnimationFrame(()=>{bg.style.width='0px';bg.style.opacity='0'})}
+    const bg=s0.bg;setTimeout(()=>bg&&bg.remove(),800)};
+  L.addEventListener('touchend',end);L.addEventListener('touchcancel',end);
+  L.addEventListener('click',e=>{const r=e.target.closest('.row');if(r&&r.dataset.swiped){e.stopPropagation();e.preventDefault()}},true)})();
 
 /* ================= app da installare (computer, Android) ================= */
 let instEvt=null;
