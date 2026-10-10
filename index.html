@@ -1072,7 +1072,7 @@ async function settingsSheet(){
     <div class="sec">Condividere con un amico</div>
     <p class="note">Il player parte sempre vuoto: chi lo riceve non vede i tuoi brani. Per fargli avere i pezzi, condividi con lui la cartella da Dropbox e chiedigli di aggiungerla al suo Dropbox. Poi nel suo player tocca Collega Dropbox con il suo account e sceglie quella cartella: i brani nuovi arrivano anche a lui da soli.</p>
     ${!isApp()&&(instEvt||!IOS)?`<div class="opts"><button class="opt" id="instBtn"><img src="icon-192.png" alt="" style="width:22px;height:22px;border-radius:6px"><span class="lbl">Installa come app</span><span class="hint">${IOS?'':'computer'}</span></button></div>`:''}
-    <div class="opts"><button class="opt" id="updBtn"><span class="lbl">Controlla aggiornamenti</span><span class="hint">versione ${APP_VER.slice(6,8)}/${APP_VER.slice(4,6)} ${APP_VER.slice(8,10)}:${APP_VER.slice(10,12)}</span></button></div>
+    <div class="opts"><button class="opt" id="updBtn"><span class="lbl">Controlla aggiornamenti</span><span class="hint">versione ${APP_VER.slice(6,8)}/${APP_VER.slice(4,6)}</span></button></div>
     ${mine.length?`<div class="sec">Dati</div><div class="opts"><button class="opt danger" id="wipe"><span class="lbl">Rimuovi tutti i brani dal player</span></button></div><p class="note">Cancella solo le copie salvate sul telefono. I file su iCloud e su Dropbox non vengono toccati.</p>`:''}`,
   el=>{el.querySelectorAll('.segs').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{SET[sg.dataset.key]=b.dataset.v;saveSet();applySettings();sg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));render();updateNow()}));
     el.querySelectorAll('[data-acc]').forEach(b=>b.onclick=()=>{SET.accent=b.dataset.acc;saveSet();applySettings();el.querySelectorAll('[data-acc]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});
@@ -1600,7 +1600,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010024948';
+const APP_VER='20261010025406';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
