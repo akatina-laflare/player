@@ -115,6 +115,11 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .row .art{transition:transform .2s ease}
 .row:active .art{transform:scale(.94)}
 .cover-note{width:42%;height:42%;color:rgba(255,255,255,.6)}
+:root{--cov-bg:#e9e9ec;--cov-note:#b3b3b8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--cov-bg:#2a292f;--cov-note:#636268}}
+:root[data-theme="dark"]{--cov-bg:#2a292f;--cov-note:#636268}
+.cov-classica .cover-note{color:var(--cov-note)}
+.cov-classica .art:not([style*="url("]){box-shadow:inset 0 0 0 1px rgba(127,127,135,.18)}
 
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px;margin-top:8px}
 .card{display:flex;flex-direction:column;gap:6px;text-align:left;min-width:0}
@@ -421,7 +426,7 @@ const ICON={
   pause:z=>`<svg width="${z}" height="${z}" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg>`,
   heart:(z,f)=>`<svg width="${z}" height="${z}" viewBox="0 0 24 24" fill="${f?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>`,
   more:`<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>`,
-  note:`<svg class="cover-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="18" cy="16" r="3" fill="currentColor"/></svg>`,
+  note:`<svg class="cover-note" viewBox="0 0 24 24" fill="currentColor"><path d="M19.2 3.1c.45-.1.8.2.8.65V15.4c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V7.6L10.4 9.05v8.6c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V5.85c0-.45.3-.8.75-.9z"/></svg>`,
   cloud:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.7 4.4 4.4 0 0 0 7 18.5z"/></svg>`,
   folder:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>`,
   file:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
@@ -441,14 +446,14 @@ const ICON={
 /* ================= impostazioni ================= */
 const ACCENTS={rosso:'#e2465f',ambra:'#d98a2b',blu:'#3d7be0',verde:'#2f9e6b',viola:'#8a5cd6',grafite:'#6f6a78'};
 const SORTS={added:'Recenti',title:'Titolo',folder:'Cartella',duration:'Durata',plays:'Più ascoltati'};
-const SET=Object.assign({theme:'auto',accent:'rosso',coverStyle:'tinta',tech:true,sort:'added',crossKeep:true},(()=>{try{return JSON.parse(ls.get('sp-settings')||'{}')}catch(e){return{}}})());
+const SET=Object.assign({theme:'auto',accent:'rosso',coverStyle:'classica',tech:false,sort:'added',crossKeep:true},(()=>{try{return JSON.parse(ls.get('sp-settings')||'{}')}catch(e){return{}}})());
 const saveSet=()=>ls.set('sp-settings',JSON.stringify(SET));
 const hostTheme=document.documentElement.getAttribute('data-theme');
 function applySettings(){
   const r=document.documentElement;
   if(SET.theme==='auto'){if(hostTheme)r.setAttribute('data-theme',hostTheme);else r.removeAttribute('data-theme')}else r.setAttribute('data-theme',SET.theme);
   r.style.setProperty('--accent',ACCENTS[SET.accent]||ACCENTS.rosso);
-  $('techCard').hidden=!SET.tech;
+  $('techCard').hidden=!SET.tech;r.classList.toggle('cov-classica',SET.coverStyle==='classica');
 }
 
 /* ================= stato ================= */
@@ -494,16 +499,17 @@ function toast(m,ms=2400){const t=$('toast');t.textContent=m;t.classList.add('sh
 function hash(s){let h=2166136261;for(const c of String(s)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
 
 /* ================= copertine ================= */
-function palette(seed){if(SET.coverStyle==='grafite')return['hsl(260 6% 52%)','hsl(260 6% 36%)','hsl(260 6% 20%)'];const a=hash(seed)%360;return[`hsl(${a} 28% 50%)`,`hsl(${a} 24% 36%)`,`hsl(${a} 20% 22%)`]}
-const gradient=seed=>{const[p,q,r]=palette(seed);return`radial-gradient(circle at 25% 20%,${p},transparent 60%),radial-gradient(circle at 85% 80%,${q},transparent 65%),${r}`};
+const darkNow=()=>{const t=document.documentElement.getAttribute('data-theme');return t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches};
+function palette(seed){if(SET.coverStyle==='classica'){const c=darkNow()?'#2a292f':'#e9e9ec';return[c,c,c]}if(SET.coverStyle==='grafite')return['hsl(260 6% 52%)','hsl(260 6% 36%)','hsl(260 6% 20%)'];const a=hash(seed)%360;return[`hsl(${a} 28% 50%)`,`hsl(${a} 24% 36%)`,`hsl(${a} 20% 22%)`]}
+const gradient=seed=>{if(SET.coverStyle==='classica')return'var(--cov-bg)';const[p,q,r]=palette(seed);return`radial-gradient(circle at 25% 20%,${p},transparent 60%),radial-gradient(circle at 85% 80%,${q},transparent 65%),${r}`};
 const coverOf=t=>t?(t.cover||S.covers[t.folder]||null):null;
 function paintArt(el,t,seed){const c=coverOf(t);if(c){el.style.background=`url("${c}") center/cover`;el.innerHTML=''}else{el.style.background=gradient(seed||t&&(t.name)||'');el.innerHTML=ICON.note}}
 function paintFolderArt(el,f){const c=S.covers[f]||(S.tracks.find(t=>t.folder===f&&t.cover)||{}).cover;if(c){el.style.background=`url("${c}") center/cover`;el.innerHTML=''}else{el.style.background=gradient(f);el.innerHTML=ICON.note}}
 function artPNG(t){const c=coverOf(t);if(c)return c;try{const cv=document.createElement('canvas');cv.width=cv.height=512;const x=cv.getContext('2d');const[p,q,r]=palette(t.name);
   x.fillStyle=r;x.fillRect(0,0,512,512);let g=x.createRadialGradient(128,100,0,128,100,330);g.addColorStop(0,p);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,512,512);
   g=x.createRadialGradient(435,410,0,435,410,360);g.addColorStop(0,q);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,512,512);
-  x.translate(148,148);x.scale(216/24,216/24);x.strokeStyle=x.fillStyle='rgba(255,255,255,.6)';x.lineWidth=1.6;x.lineCap=x.lineJoin='round';
-  x.stroke(new Path2D('M9 18V5l12-2v13'));x.beginPath();x.arc(6,18,3,0,7);x.fill();x.beginPath();x.arc(18,16,3,0,7);x.fill();return cv.toDataURL('image/png')}catch(e){return''}}
+  x.translate(148,148);x.scale(216/24,216/24);x.fillStyle=SET.coverStyle==='classica'?(darkNow()?'#636268':'#b3b3b8'):'rgba(255,255,255,.6)';
+  x.fill(new Path2D('M19.2 3.1c.45-.1.8.2.8.65V15.4c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V7.6L10.4 9.05v8.6c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V5.85c0-.45.3-.8.75-.9z'));return cv.toDataURL('image/png')}catch(e){return''}}
 function imgToData(file,size=600){return new Promise(res=>{const u=URL.createObjectURL(file),img=new Image();
   img.onload=()=>{try{const s=Math.min(img.naturalWidth,img.naturalHeight);const c=document.createElement('canvas');c.width=c.height=size;
     c.getContext('2d').drawImage(img,(img.naturalWidth-s)/2,(img.naturalHeight-s)/2,s,s,0,0,size,size);res(c.toDataURL('image/jpeg',.86))}catch(e){res(null)}URL.revokeObjectURL(u)};
@@ -1030,7 +1036,7 @@ async function settingsSheet(){
     ${seg('theme',[['auto','Automatico'],['light','Chiaro'],['dark','Scuro']])}
     <div class="swatches" role="group" aria-label="Colore">${Object.entries(ACCENTS).map(([k,c])=>`<button class="sw" data-acc="${k}" aria-label="${k}" aria-pressed="${SET.accent===k}" style="background:${c}"></button>`).join('')}</div>
     <div class="sec">Copertine</div>
-    ${seg('coverStyle',[['tinta','Tinta unita'],['grafite','Grafite']])}
+    ${seg('coverStyle',[['classica','Classica'],['tinta','Colori'],['grafite','Grafite']])}
     <p class="note">Se nella cartella c'è un'immagine (per esempio cover.jpg) diventa la copertina di tutti i brani della cartella. Puoi sempre cambiarla dal menu ··· di un brano o di una cartella.</p>
     <div class="sec">Libreria</div>
     <div class="opts"><div class="opt"><span class="lbl">Mostra formato e qualità</span><button class="toggle" role="switch" id="tgTech" aria-checked="${SET.tech}" aria-label="Mostra formato e qualità"></button></div></div>
@@ -1567,7 +1573,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010020802';
+const APP_VER='20261010021329';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -1603,6 +1609,7 @@ function installBar(){if(!instEvt||$('instBar')||isApp())return;const d=document
     S.curId=r.id;lastPos=r.t||0;$('mini').hidden=false;updateNow();render();
     const t=S.byId.get(r.id),d=t.duration||0;$('miniProg').style.width=(d?lastPos/d*100:0)+'%';$('cur').textContent=fmt(lastPos);$('rem').textContent='-'+fmt(d-lastPos)}}catch(e){}
   /* ora Dropbox vince sui doppioni: i brani Dropbox nascosti come doppioni di Drive tornano visibili (una volta sola) */
+  if(SET.uiV!==3){SET.uiV=3;SET.coverStyle='classica';SET.tech=false;saveSet();applySettings();render()}
   if(SET.dedupeV!==2){SET.dedupeV=2;saveSet();const h=hiddenIds();if(h.some(x=>String(x).startsWith('dbx:')))ls.set('sp-hidden',JSON.stringify(h.filter(x=>!String(x).startsWith('dbx:'))))}
   jamBoot();
   await gdBoot();
