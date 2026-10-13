@@ -145,6 +145,13 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .jampill.warn{background:var(--accent);color:#fff}.jampill.warn i{background:#fff}
 @keyframes jamDot{50%{opacity:.25}}
 .ib.on{background:var(--accent);color:#fff!important}
+.jamqr{width:188px;height:188px;margin:14px auto 0;background:#fff;border-radius:20px;padding:10px;box-sizing:border-box;box-shadow:0 6px 24px rgba(0,0,0,.18);animation:qrIn .35s ease}
+.jamqr svg{width:100%;height:100%;display:block}.jamqr:empty{background:var(--chip);box-shadow:none}
+@keyframes qrIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+.scanbox{position:relative;aspect-ratio:1;width:100%;max-width:330px;margin:6px auto 0;border-radius:24px;overflow:hidden;background:#000}
+.scanbox video{width:100%;height:100%;object-fit:cover;display:block}
+.scanframe{position:absolute;inset:17%;border:3px solid rgba(255,255,255,.9);border-radius:20px;box-shadow:0 0 0 999px rgba(0,0,0,.28);animation:scanP 1.6s ease-in-out infinite}
+@keyframes scanP{50%{transform:scale(1.04)}}
 .jamcode{font-family:var(--mono);font-size:40px;font-weight:700;letter-spacing:.14em;text-align:center;margin:4px 0 0;color:var(--accent)}
 .swhint{position:fixed;left:50%;top:40%;display:flex;align-items:center;gap:8px;max-width:72vw;transform:translate(-50%,-50%) scale(.9);background:rgba(18,16,22,.58);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);color:#fff;font-weight:700;font-size:18px;padding:11px 18px;border-radius:999px;pointer-events:none;opacity:0;transition:opacity .16s,transform .16s,background .2s;z-index:60;box-shadow:0 8px 30px rgba(0,0,0,.25)}
 .swhint b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1585,6 +1592,34 @@ function jamBoot(){const m=location.hash.match(/jam=([A-Za-z0-9]{6})/);
   if(m){history.replaceState(null,'',location.pathname+location.search);setTimeout(()=>jamSheet(m[1].toUpperCase()),600);return}
   try{const r=JSON.parse(ls.get('sp-jam')||'null');if(r&&r.code&&Date.now()-r.at<6*3600e3){jamBegin(r.code,r.role,r).then(()=>{if(r.role==='guest'&&audio.paused)jamNeedTap()})}}catch(e){}}
 
+/* --- QR: mostra e scansiona --- */
+const loadJs=(()=>{const m={};return u=>m[u]||(m[u]=new Promise((ok,ko)=>{const s=document.createElement('script');s.src=u;s.async=true;s.onload=ok;s.onerror=()=>{delete m[u];s.remove();ko(new Error('net'))};document.head.appendChild(s)}))})();
+const QR_LIB='https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',JSQR_LIB='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+async function jamQR(box,text){try{await loadJs(QR_LIB);if(!box.isConnected)return;const q=qrcode(0,'M');q.addData(text);q.make();box.innerHTML=q.createSvgTag({cellSize:4,margin:0,scalable:true})}catch(e){box.remove()}}
+async function jamScan(){
+  openSheet(`<h2 class="sh-title">Scansiona il QR</h2><div class="scanbox"><video id="scV" playsinline muted autoplay></video><div class="scanframe"></div></div>
+    <p class="note" style="text-align:center">Inquadra il QR nella Jam del tuo amico</p>`);
+  const v=$('sheetIn').querySelector('#scV');let st=null,on=true,raf=0,busy=false;
+  const stop=()=>{on=false;cancelAnimationFrame(raf);if(st)st.getTracks().forEach(t=>t.stop());st=null};
+  sheetClose=stop;
+  const fail=m=>{if(!on)return;stop();sheetClose=null;closeSheet();toast(m,3800)};
+  try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false})}catch(e){fail('Fotocamera non disponibile: consenti l\'accesso o scrivi il codice');return}
+  if(!on){stop();return}
+  v.srcObject=st;try{await v.play()}catch(e){}
+  let det=null;try{if('BarcodeDetector'in window&&(await BarcodeDetector.getSupportedFormats()).includes('qr_code'))det=new BarcodeDetector({formats:['qr_code']})}catch(e){}
+  if(!det){try{await loadJs(JSQR_LIB)}catch(e){fail('Serve internet per lo scanner: scrivi il codice');return}}
+  const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+  const tick=async()=>{if(!on)return;raf=requestAnimationFrame(tick);if(busy||v.readyState<2||!v.videoWidth)return;busy=true;
+    try{let txt=null;
+      if(det){const r=await det.detect(v);txt=r[0]&&r[0].rawValue}
+      else{const w=v.videoWidth,h=v.videoHeight,k=Math.min(1,720/Math.max(w,h));cv.width=w*k|0;cv.height=h*k|0;cx.drawImage(v,0,0,cv.width,cv.height);
+        const r=jsQR(cx.getImageData(0,0,cv.width,cv.height).data,cv.width,cv.height,{inversionAttempts:'dontInvert'});txt=r&&r.data}
+      const c=txt&&jamParse(txt);
+      if(c&&on){stop();sheetClose=null;if(navigator.vibrate)navigator.vibrate(30);closeSheet();await jamBegin(c,'guest');toast('Sei nella Jam: aspetto la musica…',2500)}
+      else if(txt&&on)toast('Questo QR non è una Jam',1500)}catch(e){}
+    busy=false};
+  tick()}
+
 /* --- interfaccia --- */
 function jamLabel(){if(!jam)return'';if(jam.role==='host'){const m=jamMembers();return m.length?'Jam con '+m.join(', '):'Jam · codice '+jamFmt(jam.code)}
   const solo=jam.st&&jam.st.solo,who=(jam.st&&jam.st.who)||'un amico';
@@ -1594,6 +1629,7 @@ function jamLabel(){if(!jam)return'';if(jam.role==='host'){const m=jamMembers();
 function jamUI(){const on=!!jam;['jamBtn','navJam','jamNp'].forEach(i=>{const b=$(i);if(b)b.classList.toggle('on',on)});
   const p=$('jamPill');if(p){p.hidden=!on;if(on){p.querySelector('span').textContent=jamLabel();p.classList.toggle('warn',!!(jam.needTap||jam.missing))}}
   if(on&&S.curId)$('npFrom').textContent=jamLabel()}
+const ICON_QR='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg>';
 function jamSheet(prefill){
   if(!jam){openSheet(`<h2 class="sh-title">Jam</h2>
     <p class="note" style="margin-top:-6px">Ascoltate insieme, ognuno dal suo telefono: stesso brano, stesso momento. Chi entra può mettere brani e aggiungerli alla coda.</p>
@@ -1601,24 +1637,24 @@ function jamSheet(prefill){
     <div class="opts"><button class="opt" id="jamNew">${ICON_JAM(22)}<span class="lbl">Avvia una Jam</span></button></div>
     <div class="sec">Entra nella Jam di un amico</div>
     <input class="field" id="jamIn" placeholder="Codice, per esempio K7M Q2X" value="${esc(prefill?jamFmt(prefill):'')}" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false">
-    <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn" id="jamGo">Entra</button></div>
+    <div style="display:flex;justify-content:space-between;gap:10px;margin-top:10px"><button class="btn ghost" id="jamScan">${ICON_QR}Scansiona QR</button><button class="btn" id="jamGo">Entra</button></div>
     <p class="note">Per sentire un brano bisogna averlo nella propria libreria: se ce l'hai anche tu (per esempio dalla cartella Dropbox condivisa) parte da solo, altrimenti il player aspetta il prossimo.</p>`,
     el=>{const nm=el.querySelector('#jamNm');const saveNm=()=>{const v=nm.value.trim();if(v!==(SET.jamName||'')){SET.jamName=v;saveSet()}};nm.onchange=saveNm;
       el.querySelector('#jamNew').onclick=async()=>{saveNm();await jamBegin(jamNewCode(),'host');closeSheet();setTimeout(()=>jamSheet(),330)};
       const go=async()=>{const c=jamParse(el.querySelector('#jamIn').value);if(!c){toast('Il codice è di 6 caratteri, per esempio K7M Q2X');return}saveNm();jamUnlock();closeSheet();await jamBegin(c,'guest');toast('Sei nella Jam: aspetto la musica…',2500)};
-      el.querySelector('#jamGo').onclick=go;el.querySelector('#jamIn').onkeydown=e=>{if(e.key==='Enter')go()}});return}
+      el.querySelector('#jamGo').onclick=go;el.querySelector('#jamScan').onclick=()=>{saveNm();jamUnlock();jamScan()};el.querySelector('#jamIn').onkeydown=e=>{if(e.key==='Enter')go()}});return}
   const host=jam.role==='host';
   const people=host?[[jamName()+' (tu)','avvia la Jam'],...jamMembers().map(n=>[n,''])]:[[(jam.st&&jam.st.who)||'Host','ha avviato la Jam'],...((jam.st&&jam.st.m)||[]).map(n=>[n===jamName()?n+' (tu)':n,''])];
   openSheet(`<h2 class="sh-title">Jam</h2>
-    <div class="jamcode">${jamFmt(jam.code)}</div><p class="note" style="text-align:center;margin-top:2px">codice della Jam</p>
+    <div class="jamcode">${jamFmt(jam.code)}</div><div class="jamqr" id="jamQr"></div><p class="note" style="text-align:center;margin-top:8px">${host?'Fallo inquadrare dal tuo amico: icona Jam › Scansiona QR':'codice della Jam'}</p>
     <div class="opts"><button class="opt" id="jamInv">${ICON.share}<span class="lbl">Invita un amico</span></button></div>
     <div class="sec">Chi c'è</div>
     <div class="opts">${people.map(([n,s])=>`<div class="opt">${ICON_JAM(20)}<span class="lbl">${esc(n)}${s?`<span class="s" style="display:block;margin-top:2px">${s}</span>`:''}</span></div>`).join('')}${host&&!jamMembers().length?'<div class="opt"><span class="lbl s" style="color:var(--muted)">Ancora nessuno: manda l\'invito</span></div>':''}</div>
     ${host?`<div class="opts"><div class="opt"><span class="lbl">Musica solo su questo telefono<span class="s" style="display:block;margin-top:2px;white-space:normal">Gli altri vedono e comandano la musica, ma il suono esce solo da qui (anche in Bluetooth). Spegnilo per ascoltare ognuno dal suo telefono</span></span><button class="toggle" role="switch" id="tgJamSolo" aria-checked="${jam.solo!==false}" aria-label="Musica solo su questo telefono"></button></div></div>`:''}
     ${host?`<div class="opts"><div class="opt"><span class="lbl">Gli altri possono cambiare brano<span class="s" style="display:block;margin-top:2px;white-space:normal">Se lo spegni possono solo aggiungere brani alla coda</span></span><button class="toggle" role="switch" id="tgJamCtl" aria-checked="${jam.ctl!==false}" aria-label="Gli altri possono cambiare brano"></button></div></div>`:''}
     <div class="opts"><button class="opt danger" id="jamEnd"><span class="lbl">${host?'Termina la Jam':'Esci dalla Jam'}</span></button></div>
-    <p class="note">${host?'Sull\'iPhone del tuo amico: apre il player dalla schermata Home › icona Jam › scrive il codice.':(jam.st&&jam.st.solo?'La musica esce dal telefono di chi ha avviato la Jam: da qui vedi cosa suona e puoi metterla in pausa, cambiare brano o aggiungerne alla coda.':'Senti quello che ascolta chi ha avviato la Jam, nello stesso momento. Tocca un brano o aggiungilo alla coda dal menu ··· per proporlo.')}</p>`,
-  el=>{el.querySelector('#jamInv').onclick=async()=>{const link=REDIR+'#jam='+jam.code;const text=`Entra nella mia Jam su Studio Player 🎧\nCodice: ${jamFmt(jam.code)}\n${link}`;
+    <p class="note">${host?'Sull\'iPhone del tuo amico: apre il player dalla schermata Home › icona Jam › Scansiona QR, oppure scrive il codice.':(jam.st&&jam.st.solo?'La musica esce dal telefono di chi ha avviato la Jam: da qui vedi cosa suona e puoi metterla in pausa, cambiare brano o aggiungerne alla coda.':'Senti quello che ascolta chi ha avviato la Jam, nello stesso momento. Tocca un brano o aggiungilo alla coda dal menu ··· per proporlo.')}</p>`,
+  el=>{const qb=el.querySelector('#jamQr');if(qb)jamQR(qb,REDIR+'#jam='+jam.code);el.querySelector('#jamInv').onclick=async()=>{const link=REDIR+'#jam='+jam.code;const text=`Entra nella mia Jam su Studio Player 🎧\nCodice: ${jamFmt(jam.code)}\n${link}`;
       try{if(navigator.share){await navigator.share({title:'Jam su Studio Player',text});return}}catch(e){if(e&&e.name==='AbortError')return}
       try{await navigator.clipboard.writeText(text);toast('Invito copiato')}catch(e){toast('Codice: '+jamFmt(jam.code),6000)}};
     const ts=el.querySelector('#tgJamSolo');if(ts)ts.onclick=e=>{jam.solo=!(jam.solo!==false);SET.jamSolo=jam.solo;saveSet();e.currentTarget.setAttribute('aria-checked',String(jam.solo));jamPush(true)};
@@ -1700,7 +1736,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261010142352';
+const APP_VER='20261014015119';
 let updChecking=false;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
