@@ -531,7 +531,7 @@ const ICON={
 /* ================= impostazioni ================= */
 const ACCENTS={rosso:'#e2465f',ambra:'#d98a2b',blu:'#3d7be0',verde:'#2f9e6b',viola:'#8a5cd6',grafite:'#6f6a78'};
 const SORTS={added:'Recenti',title:'Titolo',folder:'Cartella',duration:'Durata',plays:'Più ascoltati'};
-const SET=Object.assign({theme:'auto',accent:'rosso',coverStyle:'classica',tech:false,sort:'added',crossKeep:true},(()=>{try{return JSON.parse(ls.get('sp-settings')||'{}')}catch(e){return{}}})());
+const SET=Object.assign({theme:'auto',accent:'rosso',coverStyle:'grafite',tech:false,sort:'added',crossKeep:true},(()=>{try{return JSON.parse(ls.get('sp-settings')||'{}')}catch(e){return{}}})());
 const saveSet=()=>ls.set('sp-settings',JSON.stringify(SET));
 const hostTheme=document.documentElement.getAttribute('data-theme');
 function applySettings(){
@@ -1233,7 +1233,7 @@ async function settingsSheet(){
     ${seg('theme',[['auto','Automatico'],['light','Chiaro'],['dark','Scuro']])}
     <div class="swatches" role="group" aria-label="Colore">${Object.entries(ACCENTS).map(([k,c])=>`<button class="sw" data-acc="${k}" aria-label="${k}" aria-pressed="${SET.accent===k}" style="background:${c}"></button>`).join('')}</div>
     <div class="sec">Copertine</div>
-    ${seg('coverStyle',[['classica','Classica'],['tinta','Colori'],['grafite','Grafite']])}
+    ${seg('coverStyle',[['grafite','Grafite'],['classica','Classica'],['tinta','Colori']])}
     <p class="note">Se nella cartella c'è un'immagine (per esempio cover.jpg) diventa la copertina di tutti i brani della cartella. Puoi sempre cambiarla dal menu ··· di un brano o di una cartella.</p>
     <div class="sec">Ascolto veloce</div>
     <div class="segs" id="cacheSeg">${CACHE_OPTS.map(([v,l])=>`<button data-mb="${v}" aria-pressed="${(SET.cacheMB==null?1024:SET.cacheMB)===v}">${l}</button>`).join('')}</div>
@@ -1821,7 +1821,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014022811';
+const APP_VER='20261014023233';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -1916,7 +1916,7 @@ function installBar(){if(!instEvt||$('instBar')||isApp())return;const d=document
     S.curId=r.id;lastPos=r.t||0;$('mini').hidden=false;updateNow();markPlaying();
     const t=S.byId.get(r.id),d=t.duration||0;progress()}}catch(e){}
   /* ora Dropbox vince sui doppioni: i brani Dropbox nascosti come doppioni di Drive tornano visibili (una volta sola) */
-  if(SET.uiV!==3){SET.uiV=3;SET.coverStyle='classica';SET.tech=false;saveSet();applySettings();render()}
+  if(SET.uiV!==4){SET.uiV=4;if(!SET.coverStyle||SET.coverStyle==='classica')SET.coverStyle='grafite';SET.tech=false;saveSet();applySettings();render();if(S.curId)updateNow()}
   if(SET.dedupeV!==2){SET.dedupeV=2;saveSet();const h=hiddenIds();if(h.some(x=>String(x).startsWith('dbx:')))ls.set('sp-hidden',JSON.stringify(h.filter(x=>!String(x).startsWith('dbx:'))))}
   jamBoot();
   await gdBoot();
