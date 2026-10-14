@@ -1172,9 +1172,9 @@ function trackMenu(id){const t=S.byId.get(id);if(!t)return;
     ...(S.tab!=='folder'||S.folder!==t.folder?[{icon:ICON.goFolder,label:'Vai alla cartella',hint:lastSeg(t.folder),fn:()=>{closeNp();openFolder(t.folder)}}]:[]),
     ...(isCloud(t)?(t.offline?[{icon:ICON.dl,label:'Togli dal telefono',hint:'resta su '+cloudName(t),fn:()=>dbxUnkeep(t)}]:[{icon:ICON.dl,label:'Scarica sul telefono',hint:'per l\'offline',fn:()=>dbxKeep(t)}]):[]),
     {icon:ICON.trash,label:'Elimina dal player',danger:true,confirm:'Tocca di nuovo per eliminare',fn:()=>deleteTrack(t)}];
-  sheetOptions('',opts,t.demo?'Brano di esempio: sparisce da solo quando aggiungi le tue canzoni.':isCloud(t)?`Eliminare qui lo toglie solo dal player: il file resta nella cartella ${cloudName(t)} e puoi ripristinarlo dalle impostazioni.`:'Eliminare qui cancella solo la copia nel player: il file originale resta dov\'era.',headFor(t));paintArt($('shArt'),t)}
+  sheetOptions('',opts,t.demo?'Brano di esempio: sparisce da solo quando aggiungi le tue canzoni.':isCloud(t)?`Eliminare qui lo toglie dal player: il file resta nella cartella ${cloudName(t)} e puoi ripristinarlo da Impostazioni › Eliminati.`:'Eliminare qui cancella solo la copia nel player: il file originale resta dov\'era.',headFor(t));paintArt($('shArt'),t)}
 const hiddenIds=()=>{try{return JSON.parse(ls.get('sp-hidden')||'[]')}catch(e){return[]}};
-async function deleteTrack(t){if(isCloud(t)){const h=new Set(hiddenIds());h.add(t.id);ls.set('sp-hidden',JSON.stringify([...h]))}
+async function deleteTrack(t){if(isCloud(t))trashAdd([t]);
   await removeTracks([t.id],true);toast('Brano eliminato dal player')}
 function setFav(t,v){t.fav=v;saveTrack(t);if(t.id===S.curId){const b=$('npFav');b.innerHTML=ICON.heart(24,v);b.setAttribute('aria-pressed',String(v));b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop')}render();toast(v?'Aggiunto ai preferiti':'Tolto dai preferiti',1500)}
 function renameSheet(t){openSheet(`<h2 class="sh-title">Rinomina</h2><input class="field" id="rn" value="${esc(t.name)}" maxlength="120" autocomplete="off"><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn ghost" id="rnC">Annulla</button><button class="btn" id="rnS">Salva</button></div>`,
@@ -1270,9 +1270,52 @@ function folderMenu(f){const ts=lib().filter(t=>t.folder===f);sheetOptions(lastS
   {icon:ICON.playNext,label:'Riproduci',fn:()=>startContext(sorted(ts).map(t=>t.id),sorted(ts)[0].id,lastSeg(f))},
   {icon:ICON.image,label:'Cambia copertina della cartella',forId:'coverIn',fn:()=>{coverTarget={folder:f}}},
   ...(S.covers[f]?[{icon:ICON.undo,label:'Togli copertina della cartella',fn:async()=>{delete S.covers[f];await idb.del('meta','cover:'+f);render();updateNow()}}]:[]),
-  ...(ts.some(t=>!t.demo)?[{icon:ICON.trash,label:`Elimina i ${ts.length} brani dal player`,danger:true,confirm:'Tocca di nuovo per eliminarli',fn:async()=>{const h=new Set(hiddenIds());ts.filter(t=>isCloud(t)).forEach(t=>h.add(t.id));ls.set('sp-hidden',JSON.stringify([...h]));await removeTracks(ts.map(t=>t.id),true);toast('Cartella eliminata dal player')}}]:[])])}
+  ...(ts.some(t=>!t.demo)?[{icon:ICON.trash,label:`Elimina i ${ts.length} brani dal player`,danger:true,confirm:'Tocca di nuovo per eliminarli',fn:async()=>{trashAdd(ts);await removeTracks(ts.map(t=>t.id),true);toast('Cartella eliminata dal player')}}]:[])])}
 function openFolder(f){S.tab='folder';S.folder=f;S.query='';$('q').value='';$('qClr').classList.remove('show');render();window.scrollTo(0,0)}
 
+
+/* ================= eliminati =================
+   Un brano cloud eliminato dal player viene solo nascosto: il file resta su Dropbox e da "Eliminati" si può ripristinare.
+   Se nelle impostazioni si sceglie un periodo, passato quel tempo il file viene cancellato davvero da Dropbox.
+   I doppioni nascosti in automatico stanno nello stesso elenco ma non vengono mai cancellati. */
+const TRASH_OPTS=[[0,'Mai'],[7,'7 giorni'],[30,'30 giorni'],[90,'90 giorni']];
+let hidSeen={};
+const trashGet=()=>{let o={};try{o=JSON.parse(ls.get('sp-trash')||'{}')||{}}catch(e){}const h=new Set(hiddenIds());for(const k in o)if(!h.has(k))delete o[k];return o};
+const trashSet=o=>ls.set('sp-trash',JSON.stringify(o));
+function trashAdd(ts,dup){const h=new Set(hiddenIds());ts=ts.filter(t=>isCloud(t));ts.forEach(t=>h.add(t.id));ls.set('sp-hidden',JSON.stringify([...h]));const o=trashGet();
+  for(const t of ts)o[t.id]={n:t.name,f:t.folder,src:t.src,dbxId:t.dbxId,acct:t.acct,hash:t.hash,...(dup?{dup:1}:{at:Date.now()})};trashSet(o)}
+function trashRestore(ids){const x=new Set(ids);ls.set('sp-hidden',JSON.stringify(hiddenIds().filter(i=>!x.has(i))));trashSet(trashGet())}
+let purging=false;
+async function trashPurge(only){const days=+SET.trashDays||0;if(purging||(!days&&!only)||navigator.onLine===false)return 0;purging=true;let n=0;
+  try{const o=trashGet(),now=Date.now();
+    for(const id of Object.keys(o)){const x=o[id];if(x.dup||!x.at||x.src!=='dbx'||!x.dbxId)continue;if(only?!only.includes(id):now-x.at<days*864e5)continue;
+      const ac=acctById(x.acct)||accts[0];if(!ac||!ac.refresh)continue;
+      try{const m=await dbxApi(ac,'files/get_metadata',{path:x.dbxId});
+        if(x.hash&&m.content_hash&&m.content_hash!==x.hash){trashRestore([id]);continue}/* riesportato dopo l'eliminazione: è un brano nuovo, torna in libreria */
+        await dbxApi(ac,'files/delete_v2',{path:x.dbxId});trashRestore([id]);n++}
+      catch(e){const b=String(e.body||e.message||'');if(/not_found/.test(b)){trashRestore([id]);continue}
+        if(/missing_scope|files\.content\.write/.test(b))toast('Per cancellare da Dropbox serve il permesso di scrittura: ricollega Dropbox dalle impostazioni',5000);
+        else if(/no_write_permission|disallowed/.test(b)||e.status===403)toast('Questa cartella Dropbox è in sola lettura: non posso cancellare i file',4500);break}}}
+  finally{purging=false}return n}
+function trashSheet(){const o=trashGet(),days=+SET.trashDays||0,now=Date.now();
+  const rows=hiddenIds().map(id=>{const x=o[id]||hidSeen[id]||{};return{id,n:x.n||'Brano',f:x.f||'',at:x.at||0,dup:!!x.dup,src:x.src||(String(id).startsWith('gd:')?'gd':'dbx')}}).sort((a,b)=>b.at-a.at||a.n.localeCompare(b.n,'it'));
+  const sub=r=>{const q=[r.f?lastSeg(r.f):null];
+    if(r.at){const d=Math.floor((now-r.at)/864e5);q.push(d<1?'eliminato oggi':d===1?'eliminato ieri':`eliminato ${d} giorni fa`);
+      if(days&&r.src==='dbx'){const left=Math.ceil((r.at+days*864e5-now)/864e5);q.push(left<=0?'si cancella al prossimo aggiornamento':left===1?'si cancella domani':`si cancella tra ${left} giorni`)}}
+    else q.push(r.dup?'doppione nascosto':'nascosto');return q.filter(Boolean).join(' · ')};
+  const real=rows.filter(r=>r.at&&r.src==='dbx');
+  openSheet(`<h2 class="sh-title">Eliminati</h2>
+    ${rows.length?`<div class="opts">${rows.map((r,i)=>`<div class="opt"><span class="lbl">${esc(r.n)}<span class="s" style="display:block;margin-top:2px;white-space:normal">${esc(sub(r))}</span></span><button class="acc" data-res="${i}" style="font-size:15px">Ripristina</button></div>`).join('')}</div>
+    <div class="opts"><button class="opt" id="trAll">${ICON.undo}<span class="lbl">Ripristina tutti</span><span class="hint">${rows.length}</span></button>${real.length?`<button class="opt danger" id="trNow">${ICON.trash}<span class="lbl">Cancella subito da Dropbox</span><span class="hint">${real.length}</span></button>`:''}</div>`:'<p class="note">Nessun brano eliminato.</p>'}
+    <div class="sec">Cancella da Dropbox dopo</div>
+    <div class="segs" id="trSeg">${TRASH_OPTS.map(([v,l])=>`<button data-d="${v}" aria-pressed="${days===v}">${l}</button>`).join('')}</div>
+    <p class="note">Un brano eliminato sparisce dal player ma il file resta su Dropbox, e da qui puoi ripristinarlo. Se scegli un periodo, passato quel tempo il file viene cancellato davvero dalla cartella Dropbox: sparisce anche per chi la condivide. Dropbox lo tiene comunque nel suo cestino per altri 30 giorni. Con "Mai" i file non vengono mai toccati. I doppioni nascosti non vengono mai cancellati.</p>`,
+  el=>{const back=()=>{if(SET.dbxFolders.length)dbxSync(false);if(SET.gdRoot)gdSync(false)};
+    el.querySelectorAll('[data-res]').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.res];trashRestore([r.id]);toast('Ripristinato: '+r.n,2000);back();trashSheet()});
+    const all=el.querySelector('#trAll');if(all)all.onclick=()=>{trashRestore(rows.map(r=>r.id));closeSheet();toast(rows.length===1?'1 brano ripristinato':`${rows.length} brani ripristinati`);back()};
+    const nw=el.querySelector('#trNow');if(nw)nw.onclick=async()=>{if(!nw.dataset.armed){nw.dataset.armed='1';nw.querySelector('.lbl').textContent='Tocca di nuovo: spariscono da Dropbox per tutti';return}
+      nw.disabled=true;const n=await trashPurge(real.map(r=>r.id));toast(n?(n===1?'1 brano cancellato da Dropbox':`${n} brani cancellati da Dropbox`):'Non sono riuscito a cancellare: riprova tra poco',3200);if(!$('sheet').hidden)trashSheet()};
+    el.querySelectorAll('#trSeg button').forEach(b=>b.onclick=()=>{SET.trashDays=+b.dataset.d;saveSet();trashSheet()})})}
 
 /* ================= doppioni ================= */
 const normName=n=>String(n||'').toLowerCase().normalize('NFC').replace(/\.[a-z0-9]+$/,'').replace(/[_\s]+/g,' ').replace(/\s*(\(\d+\)|copia|copy)$/,'').trim();
@@ -1288,14 +1331,14 @@ function findDupes(){const groups=new Map();
   return out}
 const dupeCount=()=>findDupes().reduce((a,d)=>a+d.drop.length,0);
 async function dedupe(quiet){const ds=findDupes();if(!ds.length){if(!quiet)toast('Nessun doppione');return 0}
-  const h=new Set(hiddenIds());let n=0;const ids=[];
+  const h=new Set(hiddenIds());let n=0;const ids=[],dups=[];
   for(const{keep,drop}of ds){for(const d of drop){if(d.fav)keep.fav=true;keep.plays=(keep.plays||0)+(d.plays||0);if(!keep.cover&&d.cover)keep.cover=d.cover;
       const nt=ls.get('sp-notes:'+d.id);if(nt&&!ls.get('sp-notes:'+keep.id))ls.set('sp-notes:'+keep.id,nt);
       if(d.id===S.curId){S.curId=keep.id;if(urls[d.id]){urls[keep.id]=urls[d.id];delete urls[d.id]}setMedia(keep)}
       S.ctx=S.ctx.map(x=>x===d.id?keep.id:x);if(S.ctxBase)S.ctxBase=S.ctxBase.map(x=>x===d.id?keep.id:x);S.up=S.up.map(x=>x===d.id?keep.id:x);
-      if(isCloud(d))h.add(d.id);ids.push(d.id);n++}
+      if(isCloud(d)){h.add(d.id);dups.push(d)}ids.push(d.id);n++}
     await saveTrack(keep)}
-  ls.set('sp-hidden',JSON.stringify([...h]));await removeTracks(ids,true);if(S.curId)updateNow();
+  ls.set('sp-hidden',JSON.stringify([...h]));if(dups.length)trashAdd(dups,true);await removeTracks(ids,true);if(S.curId)updateNow();
   if(!quiet)toast(n===1?'1 doppione rimosso':`${n} doppioni rimossi`);return n}
 
 /* ================= servizi cloud (comune) ================= */
@@ -1452,7 +1495,7 @@ function dbxSettingsHTML(){if(!DBX_KEY)return'<p class="note">Dropbox non è anc
   return blocks+`<div class="opts">
     <button class="opt" id="dbxMore">${ICON.cloud}<span class="lbl">Collega un altro account Dropbox</span></button>
     ${SET.dbxFolders.length?`<button class="opt" id="dbxNow"><span class="lbl">Aggiorna ora</span></button>`:''}
-    ${hiddenIds().length?`<button class="opt" id="dbxUnhide">${ICON.undo}<span class="lbl">Ripristina i brani eliminati</span><span class="hint">${hiddenIds().length}</span></button>`:''}
+    <button class="opt" id="dbxTrash">${ICON.trash}<span class="lbl">Eliminati</span><span class="hint">${hiddenIds().length||'nessuno'}</span></button>
     <div class="opt"><span class="lbl">Scarica i brani sul telefono<span class="s" style="display:block;margin-top:2px;white-space:normal">Si sentono anche senza internet, ma occupano spazio</span></span><button class="toggle" role="switch" id="tgKeep" aria-checked="${!!SET.dbxKeep}" aria-label="Scarica i brani sul telefono"></button></div></div>
     <p class="note">Puoi aggiungere più cartelle dallo stesso account e collegare altri account Dropbox: i brani finiscono tutti nella stessa libreria. Per un altro account Dropbox ti chiede di accedere di nuovo: entra con l'altro account.</p>`}
 async function dbxRemoveFolder(f){SET.dbxFolders=SET.dbxFolders.filter(x=>x!==f);saveSet();const k=fkey(f);
@@ -1467,7 +1510,7 @@ function dbxSettingsMount(el){const g=k=>el.querySelector(k);
     if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Sicuro?';return}
     closeSheet();await dbxRemoveFolder(f);toast(`Cartella "${f.name}" tolta dal player`)});
   if(g('#dbxNow'))g('#dbxNow').onclick=()=>{closeSheet();dbxSync(true)};
-  if(g('#dbxUnhide'))g('#dbxUnhide').onclick=()=>{ls.del('sp-hidden');closeSheet();dbxSync(true)};
+  if(g('#dbxTrash'))g('#dbxTrash').onclick=()=>{closeSheet();setTimeout(trashSheet,320)};
   if(g('#tgKeep'))g('#tgKeep').onclick=e=>{SET.dbxKeep=!SET.dbxKeep;saveSet();e.currentTarget.setAttribute('aria-checked',String(SET.dbxKeep));if(SET.dbxKeep)dbxKeepAll()};
   el.querySelectorAll('[data-off]').forEach(off=>off.onclick=async()=>{const ac=accts[+off.dataset.off];if(!ac)return;
     if(!off.dataset.armed){off.dataset.armed='1';off.querySelector('.lbl').textContent='Tocca di nuovo: i brani di questo account spariscono dal player';return}
@@ -1533,7 +1576,7 @@ async function dbxSync(manual){if(dbxSyncing)return;
       okKeys.add(k);const dm=await dbxLoadDates(ac,k,ents);
       const files=ents.filter(e=>e['.tag']==='file'&&e.is_downloadable!==false);
       const aud=files.filter(e=>isAudio({name:e.name,type:''})),imgs=files.filter(e=>isImg({name:e.name,type:''}));nAud+=aud.length;
-      for(const e of aud){const id='dbx:'+e.id;if(hid.has(id)||seen.has(id))continue;seen.add(id);const folder=dbxFolderOf(f,e);let t=S.byId.get(id);
+      for(const e of aud){const id='dbx:'+e.id;if(hid.has(id)){hidSeen[id]={n:clean(e.name),f:dbxFolderOf(f,e)};continue}if(seen.has(id))continue;seen.add(id);const folder=dbxFolderOf(f,e);let t=S.byId.get(id);
         if(!t){t={id,src:'dbx',acct:ac.id,root:k,dbxId:e.id,hash:e.content_hash,path:e.path_display,name:clean(e.name),file:e.name,folder,size:e.size,added:dbxDateOf(e,dm)||Date.now(),plays:0,fav:false,info:{fmt:extOf(e.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(e.name))}};
           S.tracks.push(t);S.byId.set(id,t);added++;fresh.push(t);await saveTrack(t)}
         else{let ch=false;if(t.hash!==e.content_hash){t.hash=e.content_hash;t.size=e.size;t.file=e.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(e.name).toUpperCase()};delete tempLinks[id];
@@ -1558,7 +1601,8 @@ async function dbxSync(manual){if(dbxSyncing)return;
     else if(parts.length)toast('Dropbox: '+parts.join(' · '),3200);
     else if(manual)toast(nAud?'Dropbox: tutto aggiornato':live.length===1?`Nella cartella "${live[0].name}" non ci sono ancora brani`:'Nelle cartelle Dropbox non ci sono ancora brani',3200);
     if(!miss.length&&parts.length&&fails.length&&manual)toast('Dropbox: '+parts.join(' · ')+' (una cartella non ha risposto)',3600);
-    dbxDetails(fresh);if(SET.dbxKeep)dbxKeepAll();if(SET.autoDedupe!==false)setTimeout(()=>dedupe(true).then(n=>{if(n)toast(n===1?'1 doppione nascosto':`${n} doppioni nascosti`)}),1200)}
+    dbxDetails(fresh);if(SET.dbxKeep)dbxKeepAll();if(SET.autoDedupe!==false)setTimeout(()=>dedupe(true).then(n=>{if(n)toast(n===1?'1 doppione nascosto':`${n} doppioni nascosti`)}),1200);
+    trashPurge().then(n=>{if(n)toast(n===1?'1 brano eliminato è stato cancellato da Dropbox':`${n} brani eliminati sono stati cancellati da Dropbox`,3500)})}
   catch(e){if(manual)toast('Dropbox non risponde: riprovo quando riapri il player',3500)}
   finally{dbxSyncing=false;setTimeout(()=>{P.hidden=true},300)}}
 async function dbxDetails(list){const q=list.filter(t=>t.src!=='gd'&&/^wav/.test(extOf(t.file))&&!t.duration);let i=0;
@@ -1834,7 +1878,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014030134';
+const APP_VER='20261014031418';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
