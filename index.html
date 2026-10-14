@@ -1303,16 +1303,21 @@ function openFolder(f){S.tab='folder';S.folder=f;S.pl=null;S.query='';$('q').val
    Le copertine scelte a mano stanno in un secondo file (.studio-<account>-cover.json), caricato solo quando cambiano.
    Regola: per ogni dato vince la modifica più recente; gli ascolti si sommano tra i dispositivi. */
 const DEV=(()=>{let v=ls.get('sp-dev');if(!v){v=uid();ls.set('sp-dev',v)}return v})();
-const SYNC={st:{doc:null,rev:null,hash:null,sent:''},cv:{doc:null,rev:null,hash:null,sent:''},dirty:false,cdirty:false,timer:0,busy:false,off:false};
+const SYNC={st:{doc:null,rev:null,hash:null,sent:''},cv:{doc:null,rev:null,hash:null,sent:''},dirty:!!ls.get('sp-sync-d'),cdirty:false,timer:0,busy:false,off:false,last:0,err:''};
 const jget=(k,d)=>{try{const v=JSON.parse(ls.get(k)||'null');return v&&typeof v==='object'?v:d}catch(e){return d}};
-const syncHome=()=>{for(const f of SET.dbxFolders){const a=acctById(f.acct);if(a&&a.refresh&&a.id)return{f,ac:a}}return null};
+const SYNC_DIR='/.studio-player/';
+const syncHome=()=>{const a=accts.filter(x=>x.refresh&&x.id&&SET.dbxFolders.some(f=>f.acct===x.id)).sort((x,y)=>x.id<y.id?-1:1)[0];return a?{ac:a}:null};
 const syncName=(ac,kind)=>'.studio-'+String(ac.id).replace(/[^a-z0-9]/gi,'').slice(-14)+(kind?'-'+kind:'')+'.json';
-const syncPath=(h,kind)=>(h.f.path||'')+'/'+syncName(h.ac,kind);
+const syncPath=(h,kind)=>SYNC_DIR+syncName(h.ac,kind);
 const cvAt=()=>jget('sp-cvat',{});
 function coverTouch(key){const o=cvAt();o[key]=Date.now();ls.set('sp-cvat',JSON.stringify(o));syncDirty(true)}
 const hxGet=()=>jget('sp-hx',{});
-function syncDirty(cov){SYNC.dirty=true;if(cov)SYNC.cdirty=true;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(syncPush,2500)}
+function syncDirty(cov){SYNC.dirty=true;ls.set('sp-sync-d','1');if(cov)SYNC.cdirty=true;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(syncPush,2500)}
 async function syncLoad(){try{const a=await idb.get('meta','sync:state');if(a&&a.doc)Object.assign(SYNC.st,a);const b=await idb.get('meta','sync:covers');if(b&&b.doc)Object.assign(SYNC.cv,b)}catch(e){}}
+function syncStatus(){const d=SYNC.st.doc||{};let fav=0;for(const k in d.t||{})if(d.t[k].f)fav++;
+  const pl=Object.values(d.pl||{}).filter(q=>!q.del).length,hh=SYNC.last?new Date(SYNC.last).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}):'';
+  const base=`${fav} ${fav===1?'preferito':'preferiti'}, ${pl} playlist`;
+  if(SYNC.err)return'Problema: '+SYNC.err+' · '+base;if(SYNC.dirty||SYNC.cdirty)return'Modifiche da salvare · '+base;return(hh?'Aggiornata alle '+hh:SYNC.st.rev?'Aggiornata':'Non ancora eseguita')+' · '+base}
 const syncKeep=slot=>idb.put('meta',{doc:slot.doc,rev:slot.rev,hash:slot.hash},slot===SYNC.st?'sync:state':'sync:covers');
 const nameTs=t=>t.nameAt||(t.name!==clean(t.file)?1:0);
 /* stato locale sopra l'ultimo stato conosciuto: quello che qui è più recente vince, il resto resta com'è */
@@ -1361,27 +1366,37 @@ async function syncPut(ac,path,slot,build,apply,retry=true){const doc=build(),bo
   if(body===slot.sent||(slot.rev&&body===JSON.stringify(slot.doc))){slot.sent=body;return true}
   if(!slot.rev&&!Object.values(doc).some(v=>v&&typeof v==='object'&&Object.keys(v).length)){slot.sent=body;return true}
   try{const r=await dbxFetch(ac,'https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','Dropbox-API-Arg':hdrArg({path,mode:slot.rev?{'.tag':'update',update:slot.rev}:'add',autorename:false,mute:true})},body:new Blob([body])});
-    const j=await r.json();slot.doc=doc;slot.rev=j.rev;slot.hash=j.content_hash;slot.sent=body;await syncKeep(slot);return true}
+    const j=await r.json();slot.doc=doc;slot.rev=j.rev;slot.hash=j.content_hash;slot.sent=body;SYNC.last=Date.now();SYNC.err='';await syncKeep(slot);return true}
   catch(e){const b=String(e.body||e.message||'');
     if(noWrite(e)){SYNC.off='scope';return false}
     if(/no_write_permission|disallowed|insufficient_space/.test(b)||e.status===403){SYNC.off='ro';return false}
+    SYNC.err='salvataggio '+(e.status||'')+' '+b.replace(/[^a-z_\/ ]/gi,' ').replace(/\s+/g,' ').slice(0,70);
     if(e.status===409&&retry){const r=await syncFetch(ac,path);slot.doc=r.doc;slot.rev=r.rev;slot.hash=r.hash;if(await apply(build())){render();if(S.curId)updateNow()}return syncPut(ac,path,slot,build,apply,false)}
     return false}}
-async function syncPush(){clearTimeout(SYNC.timer);const h=syncHome();if(!h||SYNC.off||navigator.onLine===false)return;if(SYNC.busy){SYNC.timer=setTimeout(syncPush,1500);return}SYNC.busy=true;
-  try{if(SYNC.dirty){SYNC.dirty=false;if(!(await syncPut(h.ac,syncPath(h),SYNC.st,syncBuild,syncApply)))SYNC.dirty=!SYNC.off}
+async function syncPush(){clearTimeout(SYNC.timer);const h=syncHome();if(!h||SYNC.off)return;if(SYNC.busy){SYNC.timer=setTimeout(syncPush,1500);return}SYNC.busy=true;
+  try{if(SYNC.dirty){SYNC.dirty=false;if(await syncPut(h.ac,syncPath(h),SYNC.st,syncBuild,syncApply))ls.del('sp-sync-d');else SYNC.dirty=!SYNC.off}
     if(SYNC.cdirty){SYNC.cdirty=false;if(!(await syncPut(h.ac,syncPath(h,'cover'),SYNC.cv,coverBuild,coverApply)))SYNC.cdirty=!SYNC.off}}
-  catch(e){}finally{SYNC.busy=false}}
-/* chiamata da dbxSync con l'elenco dei file della cartella: se il file personale è cambiato lo scarico e unisco */
-async function syncPull(ac,f,ents){const h=syncHome();if(!h||h.f!==f||SYNC.off)return false;let ch=false;
-  const base=(f.path||'').toLowerCase(),find=n=>ents.find(e=>e['.tag']==='file'&&e.name===n&&dirOf(e.path_lower)===base);
-  for(const[kind,slot,build,apply]of[['',SYNC.st,syncBuild,syncApply],['cover',SYNC.cv,coverBuild,coverApply]]){const e=find(syncName(ac,kind));
-    try{if(e&&e.content_hash!==slot.hash){slot.doc=JSON.parse(await(await dbxDownload(ac,e.id)).text());slot.rev=e.rev;slot.hash=e.content_hash;slot.sent=''}
-      else if(!e&&slot.rev){slot.rev=null;slot.hash=null;slot.sent=''}
-      const m=build();if(await apply(m))ch=true;
-      if(JSON.stringify(m)!==JSON.stringify(slot.doc||{})){if(kind)SYNC.cdirty=true;else SYNC.dirty=true}
-      if(e)await syncKeep(slot)}catch(x){}}
+  catch(e){SYNC.err='salvataggio '+String(e&&e.message||e).slice(0,70)}finally{SYNC.busy=false}}
+/* controllo del file personale su Dropbox: se è cambiato lo scarico e lo unisco ai dati di questo dispositivo.
+   Gira a ogni aggiornamento da Dropbox e ogni 30 secondi mentre il player è aperto. */
+let syncChecking=false;
+async function syncCheck(){const h=syncHome();if(!h||SYNC.off||syncChecking)return false;syncChecking=true;let ch=false;
+  const meta=async path=>{try{return await dbxApi(h.ac,'files/get_metadata',{path})}catch(e){if(/not_found/.test(String(e.body||e.message||'')))return null;throw e}};
+  try{for(const[kind,slot,build,apply]of[['',SYNC.st,syncBuild,syncApply],['cover',SYNC.cv,coverBuild,coverApply]]){
+      try{let m=await meta(syncPath(h,kind)),moved=false;
+        /* prima versione: il file stava dentro la cartella dei brani. Lo riprendo da lì una volta sola */
+        if(!m&&!slot.rev&&!slot.doc)for(const f of SET.dbxFolders.filter(f=>f.acct===h.ac.id)){const o=await meta((f.path||'')+'/'+syncName(h.ac,kind));if(o){slot.doc=JSON.parse(await(await dbxDownload(h.ac,'rev:'+o.rev)).text());moved=true;break}}
+        if(m&&m.content_hash!==slot.hash){slot.doc=JSON.parse(await(await dbxDownload(h.ac,'rev:'+m.rev)).text());slot.rev=m.rev;slot.hash=m.content_hash;slot.sent=''}
+        else if(!m&&slot.rev){slot.rev=null;slot.hash=null;slot.sent=''}
+        const d=build();if(await apply(d))ch=true;
+        const empty=!m&&!Object.values(d).some(v=>v&&typeof v==='object'&&Object.keys(v).length);
+        if(moved||(!empty&&JSON.stringify(d)!==JSON.stringify(slot.doc||{}))){if(kind)SYNC.cdirty=true;else SYNC.dirty=true}
+        if(m)await syncKeep(slot);if(!kind){SYNC.last=Date.now();SYNC.err=''}}
+      catch(x){SYNC.err='lettura '+String(x&&(x.status||x.message)||x).slice(0,70)}}}
+  finally{syncChecking=false}
   if(SYNC.dirty||SYNC.cdirty){clearTimeout(SYNC.timer);SYNC.timer=setTimeout(syncPush,1200)}
   return ch}
+setInterval(()=>{if(document.hidden||dbxSyncing||!dbxOn())return;syncCheck().then(ch=>{if(ch){render();if(S.curId)updateNow()}})},30000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&(SYNC.dirty||SYNC.cdirty))syncPush()});
 
 /* ================= playlist (personali) ================= */
@@ -1645,6 +1660,7 @@ function dbxSettingsHTML(){if(!DBX_KEY)return'<p class="note">Dropbox non è anc
   return blocks+`<div class="opts">
     <button class="opt" id="dbxMore">${ICON.cloud}<span class="lbl">Collega un altro account Dropbox</span></button>
     ${SET.dbxFolders.length?`<button class="opt" id="dbxNow"><span class="lbl">Aggiorna ora</span></button>`:''}
+    ${!SYNC.off&&syncHome()?`<div class="opt"><span class="lbl">Sincronizzazione<span class="s" id="syncSt" style="display:block;margin-top:2px;white-space:normal">${esc(syncStatus())}</span></span><button class="acc" id="syncNow" style="font-size:15px">Sincronizza</button></div>`:''}
     ${SYNC.off?`<button class="opt" id="syncFix"><span class="lbl">Preferiti e playlist restano solo su questo dispositivo<span class="s" style="display:block;margin-top:2px;white-space:normal">${SYNC.off==='scope'?'Serve un permesso in più su Dropbox: tocca per vedere come':'La cartella Dropbox è in sola lettura o piena'}</span></span></button>`:''}
     <button class="opt" id="dbxTrash">${ICON.trash}<span class="lbl">Eliminati</span><span class="hint">${hiddenIds().length||'nessuno'}</span></button>
     <div class="opt"><span class="lbl">Scarica i brani sul telefono<span class="s" style="display:block;margin-top:2px;white-space:normal">Si sentono anche senza internet, ma occupano spazio</span></span><button class="toggle" role="switch" id="tgKeep" aria-checked="${!!SET.dbxKeep}" aria-label="Scarica i brani sul telefono"></button></div></div>
@@ -1661,6 +1677,7 @@ function dbxSettingsMount(el){const g=k=>el.querySelector(k);
     if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Sicuro?';return}
     closeSheet();await dbxRemoveFolder(f);toast(`Cartella "${f.name}" tolta dal player`)});
   if(g('#dbxNow'))g('#dbxNow').onclick=()=>{closeSheet();dbxSync(true)};
+  if(g('#syncNow'))g('#syncNow').onclick=async e=>{const b=e.currentTarget,st=g('#syncSt');b.disabled=true;st.textContent='Sincronizzo…';await syncCheck();SYNC.dirty=true;await syncPush();render();if(S.curId)updateNow();if(st.isConnected)st.textContent=syncStatus();b.disabled=false};
   if(g('#syncFix'))g('#syncFix').onclick=()=>{if(SYNC.off==='scope'){closeSheet();setTimeout(dbxScopeSheet,320)}};
   if(g('#dbxTrash'))g('#dbxTrash').onclick=()=>{closeSheet();setTimeout(trashSheet,320)};
   if(g('#tgKeep'))g('#tgKeep').onclick=e=>{SET.dbxKeep=!SET.dbxKeep;saveSet();e.currentTarget.setAttribute('aria-checked',String(SET.dbxKeep));if(SET.dbxKeep)dbxKeepAll()};
@@ -1722,11 +1739,10 @@ setInterval(async()=>{if(document.hidden||dbxSyncing||dbxPolling||!dbxOn())retur
 async function dbxSync(manual){if(dbxSyncing)return;
   const live=SET.dbxFolders.filter(f=>{const a=acctById(f.acct);return a&&a.refresh});if(!live.length)return;dbxSyncing=true;
   const P=$('prog'),PT=$('progT'),PB=$('progBar');if(manual){P.hidden=false;PT.textContent='Controllo Dropbox…';PB.style.width='15%'}
-  try{const seen=new Set(),okKeys=new Set(),fails=[];let added=0,updated=0,nAud=0;const fresh=[];let hid=new Set(hiddenIds());let fi=0;
+  try{const seen=new Set(),okKeys=new Set(),fails=[];let added=0,updated=0,nAud=0;const fresh=[];if(await syncCheck()){}let hid=new Set(hiddenIds());let fi=0;
     for(const f of live){const ac=acctById(f.acct),k=fkey(f);if(manual)PB.style.width=(15+70*fi++/live.length)+'%';
       let ents;try{ents=await dbxList(ac,f)}catch(e){fails.push({f,e});continue}
       okKeys.add(k);const dm=await dbxLoadDates(ac,k,ents);
-      if(await syncPull(ac,f,ents))hid=new Set(hiddenIds());
       const files=ents.filter(e=>e['.tag']==='file'&&e.is_downloadable!==false);
       const aud=files.filter(e=>isAudio({name:e.name,type:''})),imgs=files.filter(e=>isImg({name:e.name,type:''}));nAud+=aud.length;
       for(const e of aud){const id='dbx:'+e.id;if(hid.has(id)){hidSeen[id]={n:clean(e.name),f:dbxFolderOf(f,e)};continue}if(seen.has(id))continue;seen.add(id);const folder=dbxFolderOf(f,e);let t=S.byId.get(id);
@@ -2032,7 +2048,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014035252';
+const APP_VER='20261014041452';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
