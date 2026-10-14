@@ -1354,7 +1354,8 @@ async function syncPut(ac,path,slot,build,apply,retry=true){const doc=build(),bo
   try{const r=await dbxFetch(ac,'https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','Dropbox-API-Arg':hdrArg({path,mode:slot.rev?{'.tag':'update',update:slot.rev}:'add',autorename:false,mute:true})},body:new Blob([body])});
     const j=await r.json();slot.doc=doc;slot.rev=j.rev;slot.hash=j.content_hash;slot.sent=body;await syncKeep(slot);return true}
   catch(e){const b=String(e.body||e.message||'');
-    if(/missing_scope|no_write_permission|disallowed|insufficient_space/.test(b)||e.status===403){SYNC.off=true;return false}
+    if(noWrite(e)){SYNC.off='scope';return false}
+    if(/no_write_permission|disallowed|insufficient_space/.test(b)||e.status===403){SYNC.off='ro';return false}
     if(e.status===409&&retry){const r=await syncFetch(ac,path);slot.doc=r.doc;slot.rev=r.rev;slot.hash=r.hash;if(await apply(build())){render();if(S.curId)updateNow()}return syncPut(ac,path,slot,build,apply,false)}
     return false}}
 async function syncPush(){clearTimeout(SYNC.timer);const h=syncHome();if(!h||SYNC.off||navigator.onLine===false)return;if(SYNC.busy){SYNC.timer=setTimeout(syncPush,1500);return}SYNC.busy=true;
@@ -1429,7 +1430,7 @@ async function trashPurge(only){const days=+SET.trashDays||0;if(purging||(!days&
         if(x.hash&&m.content_hash&&m.content_hash!==x.hash){trashRestore([id]);continue}/* riesportato dopo l'eliminazione: è un brano nuovo, torna in libreria */
         await dbxApi(ac,'files/delete_v2',{path:fid});trashRestore([id]);n++}
       catch(e){const b=String(e.body||e.message||'');if(/not_found/.test(b)){trashRestore([id]);continue}
-        if(/missing_scope|files\.content\.write/.test(b))toast('Per cancellare da Dropbox serve il permesso di scrittura: ricollega Dropbox dalle impostazioni',5000);
+        if(noWrite(e)){toast('Per cancellare da Dropbox serve un permesso in più',3500);setTimeout(dbxScopeSheet,600)}
         else if(/no_write_permission|disallowed/.test(b)||e.status===403)toast('Questa cartella Dropbox è in sola lettura: non posso cancellare i file',4500);break}}}
   finally{purging=false}return n}
 function trashSheet(){const o=trashGet(),days=+SET.trashDays||0,now=Date.now();
@@ -1568,6 +1569,7 @@ if(!Array.isArray(SET.dbxFolders)){SET.dbxFolders=SET.dbxRoot&&accts[0]?[{...SET
 const acctById=id=>accts.find(a=>a.id===id);
 const acctFor=t=>(t&&acctById(t.acct))||accts[0];
 const dbxOn=()=>accts.some(a=>a.refresh);
+const noWrite=e=>/missing_scope|files\.content\.write|not permitted to access/.test(String(e&&(e.body||e.message)||''));
 const dbxShared=()=>dbxOn()&&SET.dbxFolders.some(f=>{const a=acctById(f.acct);return a&&a.refresh});
 const fkey=f=>f.acct+'|'+(f.id||f.path);
 const acctLabel=a=>a?(a.name||a.email||'Account Dropbox'):'Dropbox';
@@ -1634,6 +1636,7 @@ function dbxSettingsHTML(){if(!DBX_KEY)return'<p class="note">Dropbox non è anc
   return blocks+`<div class="opts">
     <button class="opt" id="dbxMore">${ICON.cloud}<span class="lbl">Collega un altro account Dropbox</span></button>
     ${SET.dbxFolders.length?`<button class="opt" id="dbxNow"><span class="lbl">Aggiorna ora</span></button>`:''}
+    ${SYNC.off?`<button class="opt" id="syncFix"><span class="lbl">Preferiti e playlist restano solo su questo dispositivo<span class="s" style="display:block;margin-top:2px;white-space:normal">${SYNC.off==='scope'?'Serve un permesso in più su Dropbox: tocca per vedere come':'La cartella Dropbox è in sola lettura o piena'}</span></span></button>`:''}
     <button class="opt" id="dbxTrash">${ICON.trash}<span class="lbl">Eliminati</span><span class="hint">${hiddenIds().length||'nessuno'}</span></button>
     <div class="opt"><span class="lbl">Scarica i brani sul telefono<span class="s" style="display:block;margin-top:2px;white-space:normal">Si sentono anche senza internet, ma occupano spazio</span></span><button class="toggle" role="switch" id="tgKeep" aria-checked="${!!SET.dbxKeep}" aria-label="Scarica i brani sul telefono"></button></div></div>
     <p class="note">Puoi aggiungere più cartelle dallo stesso account e collegare altri account Dropbox: i brani finiscono tutti nella stessa libreria. Per un altro account Dropbox ti chiede di accedere di nuovo: entra con l'altro account.</p>`}
@@ -1649,6 +1652,7 @@ function dbxSettingsMount(el){const g=k=>el.querySelector(k);
     if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Sicuro?';return}
     closeSheet();await dbxRemoveFolder(f);toast(`Cartella "${f.name}" tolta dal player`)});
   if(g('#dbxNow'))g('#dbxNow').onclick=()=>{closeSheet();dbxSync(true)};
+  if(g('#syncFix'))g('#syncFix').onclick=()=>{if(SYNC.off==='scope'){closeSheet();setTimeout(dbxScopeSheet,320)}};
   if(g('#dbxTrash'))g('#dbxTrash').onclick=()=>{closeSheet();setTimeout(trashSheet,320)};
   if(g('#tgKeep'))g('#tgKeep').onclick=e=>{SET.dbxKeep=!SET.dbxKeep;saveSet();e.currentTarget.setAttribute('aria-checked',String(SET.dbxKeep));if(SET.dbxKeep)dbxKeepAll()};
   el.querySelectorAll('[data-off]').forEach(off=>off.onclick=async()=>{const ac=accts[+off.dataset.off];if(!ac)return;
@@ -2019,7 +2023,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014033351';
+const APP_VER='20261014033529';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -2040,7 +2044,7 @@ function dbxUploadPick(files){const list=[...files].map(x=>x&&x.file?x:{file:x,p
   if(fs.length===1)return dbxUpload(fs[0],list);
   sheetOptions('Carica in',fs.map(f=>({label:f.name+(accts.length>1?' · '+acctLabel(acctById(f.acct)):''),fn:()=>dbxUpload(f,list)})))}
 function dbxScopeSheet(){openSheet(`<h2 class="sh-title">Serve un permesso in più</h2>
-  <p class="note">Per caricare brani dal player, l'app Dropbox del player deve poter scrivere nella cartella. Va fatto una volta sola da chi ha creato l'app (Dario): <b>dropbox.com/developers/apps</b> › Studio Player › <b>Permissions</b> › spunta <b>files.content.write</b> › <b>Submit</b>.</p>
+  <p class="note">Per caricare brani dal player, sincronizzare preferiti e playlist tra i dispositivi e svuotare gli eliminati, l'app Dropbox del player deve poter scrivere nella cartella. Va fatto una volta sola da chi ha creato l'app (Dario): <b>dropbox.com/developers/apps</b> › Studio Player › <b>Permissions</b> › spunta <b>files.content.write</b> › <b>Submit</b>.</p>
   <p class="note">Poi ognuno tocca qui sotto <b>Ricollega Dropbox</b> e accetta.</p>
   <div class="opts"><button class="opt" id="scRe">${ICON.cloud}<span class="lbl">Ricollega Dropbox</span></button></div>`,
   el=>{el.querySelector('#scRe').onclick=()=>{closeSheet();dbxConnect(false)}})}
@@ -2053,7 +2057,7 @@ async function dbxUpload(f,list){if(uploading){toast('Sto già caricando, aspett
       if(file.size>150e6){big++;continue}
       try{await dbxFetch(ac,'https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','Dropbox-API-Arg':hdrArg({path:(f.path||'')+'/'+(sub?sub+'/':'')+file.name,mode:'add',autorename:true,mute:false,...(file.lastModified>0&&file.lastModified<Date.now()?{client_modified:new Date(file.lastModified).toISOString().replace(/\.\d+Z$/,'Z')}:{})})},body:file});ok++}
       catch(e){const b=String(e.body||e.message||'');
-        if(/missing_scope|files\.content\.write/.test(b)){stop='scope';break}
+        if(noWrite(e)){stop='scope';break}
         if(/no_write_permission|insufficient_space|disallowed/.test(b)||e.status===403){stop=/insufficient_space/.test(b)?'space':'ro';break}
         if(e.message==='nolink'){stop='link';break}
         stop='net';break}}}
