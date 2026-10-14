@@ -1502,6 +1502,17 @@ async function dbxFolderSheet(path,ac){ac=ac||accts.find(a=>a.refresh);if(!ac){d
       SET.dbxFolders=SET.dbxFolders.filter(x=>!sub.includes(x));SET.dbxFolders.push(f);saveSet();closeSheet();toast('Cartella aggiunta: '+f.name);dbxSync(true)}})}
 
 let dbxSyncing=false;
+/* date vere dei bounce: Dropbox non trasmette la data dei file convertiti dal Mac, quindi il Mac scrive nella cartella
+   un elenco (.studio-date.tsv: percorso <tab> data) e il player usa quello; per i brani non in elenco vale la data di Dropbox */
+const DATES_FILE='.studio-date.tsv',dbxDates={};
+const dKey=p=>String(p||'').normalize('NFC').toLowerCase();
+async function dbxLoadDates(ac,k,ents){const fs=ents.filter(e=>e['.tag']==='file'&&e.name===DATES_FILE).sort((a,b)=>a.path_lower.length-b.path_lower.length);
+  if(!fs.length){delete dbxDates[k];return null}const e=fs[0];if(dbxDates[k]&&dbxDates[k].hash===e.content_hash)return dbxDates[k];
+  try{const tx=await(await dbxDownload(ac,e.id)).text(),map=new Map();
+    for(const ln of tx.split('\n')){const i=ln.lastIndexOf('\t');if(i<1)continue;const v=+ln.slice(i+1)*1000;if(v>0)map.set(dKey(ln.slice(0,i)),v)}
+    dbxDates[k]={hash:e.content_hash,base:dKey(dirOf(e.path_lower)),map}}catch(x){}
+  return dbxDates[k]||null}
+const dbxDateOf=(e,dm)=>{if(dm){const p=dKey(e.path_lower||e.path_display);if(p.startsWith(dm.base+'/')){const v=dm.map.get(p.slice(dm.base.length+1));if(v)return v}}return dbxDate(e)};
 const dbxDate=e=>{const c=Date.parse(e.client_modified)||0,sv=Date.parse(e.server_modified)||0;return c&&sv?Math.min(c,sv):c||sv||0};
 function dbxFolderOf(f,e){const rootSeg=(f.display||f.path).split('/').length;const segs=e.path_display.split('/');const mid=segs.slice(rootSeg,-1);return mid.length?mid.join('/'):f.name}
 async function dbxList(ac,f){let res=await dbxApi(ac,'files/list_folder',{path:f.id||f.path,recursive:true,limit:2000});let ents=res.entries;
@@ -1519,15 +1530,15 @@ async function dbxSync(manual){if(dbxSyncing)return;
   try{const seen=new Set(),okKeys=new Set(),fails=[];let added=0,updated=0,nAud=0;const fresh=[];const hid=new Set(hiddenIds());let fi=0;
     for(const f of live){const ac=acctById(f.acct),k=fkey(f);if(manual)PB.style.width=(15+70*fi++/live.length)+'%';
       let ents;try{ents=await dbxList(ac,f)}catch(e){fails.push({f,e});continue}
-      okKeys.add(k);
+      okKeys.add(k);const dm=await dbxLoadDates(ac,k,ents);
       const files=ents.filter(e=>e['.tag']==='file'&&e.is_downloadable!==false);
       const aud=files.filter(e=>isAudio({name:e.name,type:''})),imgs=files.filter(e=>isImg({name:e.name,type:''}));nAud+=aud.length;
       for(const e of aud){const id='dbx:'+e.id;if(hid.has(id)||seen.has(id))continue;seen.add(id);const folder=dbxFolderOf(f,e);let t=S.byId.get(id);
-        if(!t){t={id,src:'dbx',acct:ac.id,root:k,dbxId:e.id,hash:e.content_hash,path:e.path_display,name:clean(e.name),file:e.name,folder,size:e.size,added:dbxDate(e)||Date.now(),plays:0,fav:false,info:{fmt:extOf(e.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(e.name))}};
+        if(!t){t={id,src:'dbx',acct:ac.id,root:k,dbxId:e.id,hash:e.content_hash,path:e.path_display,name:clean(e.name),file:e.name,folder,size:e.size,added:dbxDateOf(e,dm)||Date.now(),plays:0,fav:false,info:{fmt:extOf(e.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(e.name))}};
           S.tracks.push(t);S.byId.set(id,t);added++;fresh.push(t);await saveTrack(t)}
         else{let ch=false;if(t.hash!==e.content_hash){t.hash=e.content_hash;t.size=e.size;t.file=e.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(e.name).toUpperCase()};delete tempLinks[id];
             await cacheDel(id);if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
-          {const ad=dbxDate(e);if(ad&&t.added!==ad){t.added=ad;ch=true}}
+          {const ad=dbxDateOf(e,dm);if(ad&&t.added!==ad){t.added=ad;ch=true}}
           if(t.path!==e.path_display||t.folder!==folder||t.acct!==ac.id||t.root!==k){if(t.acct!==ac.id)delete tempLinks[id];t.path=e.path_display;t.folder=folder;t.acct=ac.id;t.root=k;ch=true}
           if(ch)await saveTrack(t)}}
       const byF={};imgs.forEach(e=>{const fo=dbxFolderOf(f,e);(byF[fo]=byF[fo]||[]).push(e)});
@@ -1823,7 +1834,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014025749';
+const APP_VER='20261014030134';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
