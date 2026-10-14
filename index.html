@@ -1303,7 +1303,7 @@ function openFolder(f){S.tab='folder';S.folder=f;S.pl=null;S.query='';$('q').val
    Le copertine scelte a mano stanno in un secondo file (.studio-<account>-cover.json), caricato solo quando cambiano.
    Regola: per ogni dato vince la modifica più recente; gli ascolti si sommano tra i dispositivi. */
 const DEV=(()=>{let v=ls.get('sp-dev');if(!v){v=uid();ls.set('sp-dev',v)}return v})();
-const SYNC={st:{doc:null,rev:null,hash:null,sent:''},cv:{doc:null,rev:null,hash:null,sent:''},dirty:!!ls.get('sp-sync-d'),cdirty:false,timer:0,busy:false,off:false,last:0,err:''};
+const SYNC={st:{doc:null,rev:null,hash:null,sent:''},cv:{doc:null,rev:null,hash:null,sent:''},dirty:!!ls.get('sp-sync-d'),cdirty:false,timer:0,busy:false,off:false,last:0,err:'',fail:0};
 const jget=(k,d)=>{try{const v=JSON.parse(ls.get(k)||'null');return v&&typeof v==='object'?v:d}catch(e){return d}};
 const SYNC_DIR='/.studio-player/';
 const syncHome=()=>{const a=accts.filter(x=>x.refresh&&x.id&&SET.dbxFolders.some(f=>f.acct===x.id)).sort((x,y)=>x.id<y.id?-1:1)[0];return a?{ac:a}:null};
@@ -1376,7 +1376,8 @@ async function syncPut(ac,path,slot,build,apply,retry=true){const doc=build(),bo
 async function syncPush(){clearTimeout(SYNC.timer);const h=syncHome();if(!h||SYNC.off)return;if(SYNC.busy){SYNC.timer=setTimeout(syncPush,1500);return}SYNC.busy=true;
   try{if(SYNC.dirty){SYNC.dirty=false;if(await syncPut(h.ac,syncPath(h),SYNC.st,syncBuild,syncApply))ls.del('sp-sync-d');else SYNC.dirty=!SYNC.off}
     if(SYNC.cdirty){SYNC.cdirty=false;if(!(await syncPut(h.ac,syncPath(h,'cover'),SYNC.cv,coverBuild,coverApply)))SYNC.cdirty=!SYNC.off}}
-  catch(e){SYNC.err='salvataggio '+String(e&&e.message||e).slice(0,70)}finally{SYNC.busy=false}}
+  catch(e){SYNC.err='salvataggio '+String(e&&e.message||e).slice(0,70);SYNC.dirty=true}finally{SYNC.busy=false}
+  if(!SYNC.off&&(SYNC.dirty||SYNC.cdirty)){SYNC.fail=Math.min(SYNC.fail+1,5);clearTimeout(SYNC.timer);SYNC.timer=setTimeout(syncPush,Math.min(60000,2500*2**SYNC.fail))}else SYNC.fail=0}
 /* controllo del file personale su Dropbox: se è cambiato lo scarico e lo unisco ai dati di questo dispositivo.
    Gira a ogni aggiornamento da Dropbox e ogni 30 secondi mentre il player è aperto. */
 let syncChecking=false;
@@ -1385,12 +1386,12 @@ async function syncCheck(){const h=syncHome();if(!h||SYNC.off||syncChecking)retu
   try{for(const[kind,slot,build,apply]of[['',SYNC.st,syncBuild,syncApply],['cover',SYNC.cv,coverBuild,coverApply]]){
       try{let m=await meta(syncPath(h,kind)),moved=false;
         /* prima versione: il file stava dentro la cartella dei brani. Lo riprendo da lì una volta sola */
-        if(!m&&!slot.rev&&!slot.doc)for(const f of SET.dbxFolders.filter(f=>f.acct===h.ac.id)){const o=await meta((f.path||'')+'/'+syncName(h.ac,kind));if(o){slot.doc=JSON.parse(await(await dbxDownload(h.ac,'rev:'+o.rev)).text());moved=true;break}}
+        if(!m)for(const f of SET.dbxFolders.filter(f=>f.acct===h.ac.id)){const o=await meta((f.path||'')+'/'+syncName(h.ac,kind));if(o){slot.doc=JSON.parse(await(await dbxDownload(h.ac,'rev:'+o.rev)).text());slot.rev=null;slot.hash=null;slot.sent='';moved=true;break}}
         if(m&&m.content_hash!==slot.hash){slot.doc=JSON.parse(await(await dbxDownload(h.ac,'rev:'+m.rev)).text());slot.rev=m.rev;slot.hash=m.content_hash;slot.sent=''}
-        else if(!m&&slot.rev){slot.rev=null;slot.hash=null;slot.sent=''}
+        else if(!m&&slot.rev){slot.rev=null;slot.hash=null;slot.sent='';moved=true}
         const d=build();if(await apply(d))ch=true;
         const empty=!m&&!Object.values(d).some(v=>v&&typeof v==='object'&&Object.keys(v).length);
-        if(moved||(!empty&&JSON.stringify(d)!==JSON.stringify(slot.doc||{}))){if(kind)SYNC.cdirty=true;else SYNC.dirty=true}
+        if((moved&&!empty)||(!empty&&JSON.stringify(d)!==JSON.stringify(slot.doc||{}))){if(kind)SYNC.cdirty=true;else SYNC.dirty=true}
         if(m)await syncKeep(slot);if(!kind){SYNC.last=Date.now();SYNC.err=''}}
       catch(x){SYNC.err='lettura '+String(x&&(x.status||x.message)||x).slice(0,70)}}}
   finally{syncChecking=false}
@@ -2048,7 +2049,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014041452';
+const APP_VER='20261014041709';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
