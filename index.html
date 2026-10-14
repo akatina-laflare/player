@@ -61,7 +61,7 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .ib:active{background:var(--chip)}
 .acc{color:var(--accent)}
 
-.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--chip);border-radius:10px;padding:2px;margin:6px 0 12px}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);background:var(--chip);border-radius:10px;padding:2px;margin:6px 0 12px}
 .seg button{padding:7px 4px;border-radius:8px;font-size:14px;font-weight:500;color:var(--muted)}
 .seg button[aria-selected="true"]{background:var(--raised);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .sub{color:var(--muted);font-size:13px;margin:0 0 10px;font-variant-numeric:tabular-nums}
@@ -265,6 +265,9 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 .scrim.show{opacity:1}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;background:var(--surface);color:var(--fg);border-radius:16px 16px 0 0;max-height:86%;overflow-y:auto;overscroll-behavior:contain;transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.8,.2,1);padding:6px 16px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
 .sheet.show{transform:none}
+.row .grip{flex:none;width:34px;height:44px;display:grid;place-items:center;color:var(--muted);touch-action:none;cursor:grab}
+.row.lift{z-index:3;background:var(--surface);box-shadow:0 8px 24px rgba(0,0,0,.22);transition:none!important;content-visibility:visible}
+.list.sorting .row:not(.lift){transition:transform .18s ease}
 .sheet.drag{transition:none;will-change:transform}.scrim.drag{transition:none}
 .sheet-in{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
 .sheet .grab{background:var(--line)}
@@ -386,7 +389,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 </div>
 <div class="wrap">
   <header class="top">
-    <button class="back" id="back" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Cartelle</button>
+    <button class="back" id="back" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg><span id="backL">Cartelle</span></button>
     <div class="top-row">
       <h1 id="h1">Libreria</h1>
       <div class="top-btns">
@@ -402,6 +405,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
     <button role="tab" data-tab="songs" aria-selected="true">Brani</button>
     <button role="tab" data-tab="folders" aria-selected="false">Cartelle</button>
     <button role="tab" data-tab="favs" aria-selected="false">Preferiti</button>
+    <button role="tab" data-tab="playlists" aria-selected="false">Playlist</button>
   </nav>
   <div id="fhead" class="fhead" hidden></div>
   <p class="sub" id="count"></p>
@@ -793,7 +797,8 @@ function sorted(arr){const a=[...arr],k=SET.sort,co=(x,y)=>x.localeCompare(y,'it
   if(k==='title')a.sort((x,y)=>co(x.name,y.name));else if(k==='folder')a.sort((x,y)=>co(x.folder,y.folder)||co(x.name,y.name));
   else if(k==='duration')a.sort((x,y)=>(y.duration||0)-(x.duration||0));else if(k==='plays')a.sort((x,y)=>(y.plays||0)-(x.plays||0)||y.added-x.added);
   else a.sort((x,y)=>y.added-x.added);return a}
-function visibleTracks(){let a=lib();if(S.tab==='favs')a=a.filter(t=>t.fav);if(S.tab==='folder')a=a.filter(t=>t.folder===S.folder);
+function visibleTracks(){if(S.tab==='playlist'){let a=plTracks(S.pl);const q=S.query.trim().toLowerCase();if(q)a=a.filter(t=>t.name.toLowerCase().includes(q)||t.folder.toLowerCase().includes(q));return a}
+  let a=lib();if(S.tab==='favs')a=a.filter(t=>t.fav);if(S.tab==='folder')a=a.filter(t=>t.folder===S.folder);
   const q=S.query.trim().toLowerCase();if(q)a=a.filter(t=>t.name.toLowerCase().includes(q)||t.folder.toLowerCase().includes(q));
   if(S.tab==='folder'&&SET.sort==='added')return[...a].sort((x,y)=>x.name.localeCompare(y.name,'it',{numeric:true,sensitivity:'base'}));return sorted(a)}
 function folders(){const m=new Map();for(const t of lib()){if(!m.has(t.folder))m.set(t.folder,[]);m.get(t.folder).push(t)}
@@ -804,20 +809,27 @@ function rowHTML(t){const playing=t.id===S.curId;const sub=[S.tab!=='folder'?las
     <div class="art" data-art="${t.id}"></div>
     <div class="meta"><div class="txt"><div class="t">${esc(t.name)}</div><div class="s">${t.demo?'<span class="tag">Esempio</span>':''}${esc(sub)}</div></div>
     ${isCloud(t)&&t.offline?`<span class="s" aria-label="Scaricato sul telefono" title="Scaricato sul telefono">${ICON.down}</span>`:''}${t.fav?`<span class="heart" aria-label="Preferito">${ICON.heart(14,true)}</span>`:''}
-    <button class="more" data-more="${t.id}" aria-label="Opzioni per ${esc(t.name)}">${ICON.more}</button></div></li>`}
+    <button class="more" data-more="${t.id}" aria-label="Opzioni per ${esc(t.name)}">${ICON.more}</button>${S.tab==='playlist'&&!S.query?'<span class="grip" data-grip aria-label="Trascina per riordinare"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9h14M5 15h14"/></svg></span>':''}</div></li>`}
 let lastView='';
 function render(){
-  const inFolder=S.tab==='folder';
-  const view=S.tab+'|'+(S.folder||'')+'|'+SET.sort;const animate=view!==lastView;lastView=view;
-  document.querySelectorAll('#seg button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===S.tab||(inFolder&&b.dataset.tab==='folders'))));
-  $('seg').hidden=inFolder;$('back').hidden=!inFolder;$('folderMore').hidden=!inFolder;
-  $('h1').textContent=inFolder?lastSeg(S.folder):S.tab==='favs'?'Preferiti':S.tab==='folders'?'Cartelle':'Libreria';$('navT').textContent=$('h1').textContent;$('navBack').hidden=!inFolder;
+  const inFolder=S.tab==='folder',inPl=S.tab==='playlist',sub=inFolder||inPl;
+  if(inPl&&(!plGet()[S.pl]||plGet()[S.pl].del)){S.tab='playlists';S.pl=null;return render()}
+  const view=S.tab+'|'+(S.folder||'')+'|'+(S.pl||'')+'|'+SET.sort;const animate=view!==lastView;lastView=view;
+  document.querySelectorAll('#seg button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===S.tab||(inFolder&&b.dataset.tab==='folders')||(inPl&&b.dataset.tab==='playlists'))));
+  $('seg').hidden=sub;$('back').hidden=!sub;$('folderMore').hidden=!sub;$('backL').textContent=inPl?'Playlist':'Cartelle';$('sortBtn').hidden=inPl;
+  $('h1').textContent=inFolder?lastSeg(S.folder):inPl?plGet()[S.pl].name:S.tab==='favs'?'Preferiti':S.tab==='folders'?'Cartelle':S.tab==='playlists'?'Playlist':'Libreria';$('navT').textContent=$('h1').textContent;$('navBack').hidden=!sub;
   $('sortL').textContent=SORTS[SET.sort];
   const L=$('list'),G=$('grid'),E=$('emptyBox'),FH=$('fhead');E.innerHTML='';
   const mine=own();
-  const nd=S.tab!=='folders'?dupeCount():0;
+  const nd=S.tab!=='folders'&&S.tab!=='playlists'?dupeCount():0;
   if(nd)E.innerHTML=`<div class="dupbar"><span>${ICON.trash}<b>${nd} ${nd===1?'doppione':'doppioni'}</b> nella libreria</span><button class="btn" data-act="dedupe">Rimuovi</button></div>`;
   else if(!mine.length&&S.tab==='songs')E.innerHTML=`<p class="sub" style="margin:10px 0 0">Brani di esempio. Aggiungi i tuoi da <button class="acc" data-act="goFolders" style="font-size:13px;font-weight:600">Cartelle</button> o con il tasto +.</p>`;
+  if(S.tab==='playlists'){
+    L.innerHTML='';L.hidden=true;FH.hidden=true;$('songTools').hidden=true;G.hidden=false;const ps=plList();
+    $('count').textContent=ps.length?`${ps.length} playlist`:'';
+    G.innerHTML=`<button class="card add" data-act="newpl"><div class="art"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><div><div class="t">Nuova playlist</div><div class="s">Solo tua</div></div></button>`+ps.map(q=>{const n=q.ids.filter(i=>S.byId.has(i)).length;return`<button class="card" data-pl="${esc(q.id)}"><div class="art" data-plart="${esc(q.id)}"></div><div><div class="t">${esc(q.name)}</div><div class="s">${n} ${n===1?'brano':'brani'}</div></div></button>`}).join('');
+    G.classList.toggle('anim',animate);if(animate)[...G.children].slice(0,18).forEach((c,i)=>c.style.animationDelay=(i*35)+'ms');
+    G.querySelectorAll('[data-plart]').forEach(el=>{const t=plTracks(el.dataset.plart)[0];paintArt(el,t,(plGet()[el.dataset.plart]||{}).name)});return}
   if(S.tab==='folders'){
     L.innerHTML='';L.hidden=true;FH.hidden=true;$('songTools').hidden=true;G.hidden=false;const fs=folders();
     $('count').textContent=fs.length?`${fs.length} ${fs.length===1?'cartella':'cartelle'}`:'';
@@ -831,7 +843,7 @@ function render(){
     paintFolderArt($('fArt'),S.folder)}else FH.hidden=true;
   $('count').textContent=v.length?`${v.length} ${v.length===1?'brano':'brani'}`:'';
   $('playAll').disabled=$('shufAll').disabled=!v.length;
-  L.innerHTML=v.length?v.map(rowHTML).join(''):`<li class="none">${S.query?'Nessun brano corrisponde alla ricerca.':S.tab==='favs'?'Nessun preferito: tocca il cuore su un brano per aggiungerlo qui.':'Nessun brano.'}</li>`;
+  L.innerHTML=v.length?v.map(rowHTML).join(''):`<li class="none">${S.query?'Nessun brano corrisponde alla ricerca.':S.tab==='favs'?'Nessun preferito: tocca il cuore su un brano per aggiungerlo qui.':inPl?'Playlist vuota: aggiungi brani dal menu ··· di un brano, "Aggiungi a playlist".':'Nessun brano.'}</li>`;
   if(dbxOn())setTimeout(()=>warmLinks(S.visible.slice(0,25)),400);
   L.classList.toggle('anim',animate);if(animate)[...L.children].slice(0,18).forEach((r,i)=>r.style.animationDelay=(i*22)+'ms');
   L.querySelectorAll('[data-art]').forEach(el=>{const t=S.byId.get(el.dataset.art);paintArt(el,t);if(t.id===S.curId)el.insertAdjacentHTML('beforeend','<div class="bars"><i></i><i></i><i></i></div>')})}
@@ -934,7 +946,7 @@ let counted=null;
 ['seeked','play','pause','ratechange','loadedmetadata'].forEach(ev=>audio.addEventListener(ev,()=>{pgPS=0}));
 audio.addEventListener('ended',()=>{if(jamSilentUrl&&audio.src===jamSilentUrl)return;if(S.sleepTrack){S.sleepTrack=false;updTimer();audio.currentTime=0;return}if(jamIsGuest()){jamEnded();return}if(S.repeat==='one'){audio.currentTime=0;audio.play().catch(()=>{});return}next(true)});
 audio.addEventListener('play',()=>{syncPlay();loop()});audio.addEventListener('pause',syncPlay);
-audio.addEventListener('timeupdate',()=>{const t=S.byId.get(S.curId);if(t&&counted!==t.id&&audio.currentTime>Math.min(30,(audio.duration||60)/2)){counted=t.id;t.plays=(t.plays||0)+1;saveTrack(t)}abCheck()});
+audio.addEventListener('timeupdate',()=>{const t=S.byId.get(S.curId);if(t&&counted!==t.id&&audio.currentTime>Math.min(30,(audio.duration||60)/2)){counted=t.id;if(t.own==null)t.own=t.plays||0;t.own++;t.plays=(t.plays||0)+1;saveTrack(t);if(isCloud(t))syncDirty()}abCheck()});
 audio.addEventListener('loadedmetadata',()=>{const t=S.byId.get(S.curId);if(t&&isFinite(audio.duration)&&Math.abs((t.duration||0)-audio.duration)>1){t.duration=audio.duration;saveTrack(t)}progress()});
 function syncPlay(){const p=audio.paused;$('play').innerHTML=ICON[p?'play':'pause'](46);$('miniPlay').innerHTML=ICON[p?'play':'pause'](26);
   $('np').classList.toggle('paused',p);document.querySelectorAll('.row').forEach(r=>r.classList.toggle('paused',p));
@@ -1166,9 +1178,11 @@ function trackMenu(id){const t=S.byId.get(id);if(!t)return;
     {icon:ICON.queueAdd,label:'Aggiungi in coda',fn:()=>{if(jamQueue(id,false))return;if(id===S.curId){toast('Questo brano è già in riproduzione');return}S.up.push(id);if(!S.curId)next();toast('Aggiunto in coda');renderUpNext();setTimeout(preloadNext,300)}},
     {icon:`<span class="acc">${ICON.heart(20,t.fav)}</span>`,label:t.fav?'Togli dai preferiti':'Aggiungi ai preferiti',fn:()=>setFav(t,!t.fav)},
     ...(!t.demo&&navigator.share?[{icon:ICON.share,label:'Condividi il brano',hint:'WhatsApp, AirDrop',fn:()=>{blobFor(t,{fetch:false}).then(b=>{if(b)shareBlobs[t.id]=b;shareTrack(t)})}}]:[]),
+    ...(!t.demo?[{icon:ICON.playNext,label:'Aggiungi a playlist',fn:()=>setTimeout(()=>plAddSheet(t.id),320)}]:[]),
+    ...(S.tab==='playlist'&&S.pl?[{icon:ICON.x,label:'Togli dalla playlist',fn:()=>plRemove(S.pl,t.id)}]:[]),
     {icon:ICON.pencil,label:'Rinomina',fn:()=>setTimeout(()=>renameSheet(t),320)},
     {icon:ICON.image,label:'Cambia copertina',forId:'coverIn',fn:()=>{coverTarget={track:t.id}}},
-    ...(t.cover?[{icon:ICON.undo,label:'Torna alla copertina classica',fn:async()=>{delete t.cover;await saveTrack(t);refreshArt(t)}}]:[]),
+    ...(t.cover?[{icon:ICON.undo,label:'Torna alla copertina classica',fn:async()=>{delete t.cover;await saveTrack(t);coverTouch('t:'+t.id);refreshArt(t)}}]:[]),
     ...(S.tab!=='folder'||S.folder!==t.folder?[{icon:ICON.goFolder,label:'Vai alla cartella',hint:lastSeg(t.folder),fn:()=>{closeNp();openFolder(t.folder)}}]:[]),
     ...(isCloud(t)?(t.offline?[{icon:ICON.dl,label:'Togli dal telefono',hint:'resta su '+cloudName(t),fn:()=>dbxUnkeep(t)}]:[{icon:ICON.dl,label:'Scarica sul telefono',hint:'per l\'offline',fn:()=>dbxKeep(t)}]):[]),
     {icon:ICON.trash,label:'Elimina dal player',danger:true,confirm:'Tocca di nuovo per eliminare',fn:()=>deleteTrack(t)}];
@@ -1176,15 +1190,15 @@ function trackMenu(id){const t=S.byId.get(id);if(!t)return;
 const hiddenIds=()=>{try{return JSON.parse(ls.get('sp-hidden')||'[]')}catch(e){return[]}};
 async function deleteTrack(t){if(isCloud(t))trashAdd([t]);
   await removeTracks([t.id],true);toast('Brano eliminato dal player')}
-function setFav(t,v){t.fav=v;saveTrack(t);if(t.id===S.curId){const b=$('npFav');b.innerHTML=ICON.heart(24,v);b.setAttribute('aria-pressed',String(v));b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop')}render();toast(v?'Aggiunto ai preferiti':'Tolto dai preferiti',1500)}
+function setFav(t,v){t.fav=v;t.favAt=Date.now();saveTrack(t);syncDirty();if(t.id===S.curId){const b=$('npFav');b.innerHTML=ICON.heart(24,v);b.setAttribute('aria-pressed',String(v));b.classList.remove('pop');void b.offsetWidth;b.classList.add('pop')}render();toast(v?'Aggiunto ai preferiti':'Tolto dai preferiti',1500)}
 function renameSheet(t){openSheet(`<h2 class="sh-title">Rinomina</h2><input class="field" id="rn" value="${esc(t.name)}" maxlength="120" autocomplete="off"><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn ghost" id="rnC">Annulla</button><button class="btn" id="rnS">Salva</button></div>`,
-  el=>{const f=el.querySelector('#rn');const save=()=>{const v=f.value.trim();if(!v){toast('Il titolo non può essere vuoto');return}t.name=v;saveTrack(t);closeSheet();render();if(t.id===S.curId){updateNow();setMedia(t)}};
+  el=>{const f=el.querySelector('#rn');const save=()=>{const v=f.value.trim();if(!v){toast('Il titolo non può essere vuoto');return}t.name=v;t.nameAt=Date.now();saveTrack(t);syncDirty();closeSheet();render();if(t.id===S.curId){updateNow();setMedia(t)}};
     el.querySelector('#rnS').onclick=save;el.querySelector('#rnC').onclick=closeSheet;f.onkeydown=e=>{if(e.key==='Enter')save()}})}
 let coverTarget=null;
 function pickCover(target){coverTarget=target;$('coverIn').click()}
 $('coverIn').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!$('sheet').hidden)closeSheet();if(!f||!coverTarget)return;const d=await imgToData(f);if(!d){toast('Questa immagine non si apre: prova con un JPG o PNG');return}
-  if(coverTarget.track){const t=S.byId.get(coverTarget.track);if(t){t.cover=d;await saveTrack(t);refreshArt(t)}}
-  else if(coverTarget.folder!=null){S.covers[coverTarget.folder]=d;await idb.put('meta',d,'cover:'+coverTarget.folder);render();updateNow()}
+  if(coverTarget.track){const t=S.byId.get(coverTarget.track);if(t){t.cover=d;await saveTrack(t);coverTouch('t:'+t.id);refreshArt(t)}}
+  else if(coverTarget.folder!=null){S.covers[coverTarget.folder]=d;await idb.put('meta',d,'cover:'+coverTarget.folder);coverTouch('f:'+coverTarget.folder);render();updateNow()}
   toast('Copertina aggiornata')};
 function refreshArt(t){render();if(t.id===S.curId){updateNow();setMedia(t)}}
 async function removeTracks(ids,quiet){for(const id of ids){const t=S.byId.get(id);if(!t)continue;
@@ -1269,10 +1283,130 @@ function addSheet(){const dirOK=!IOS&&('webkitdirectory'in document.createElemen
 function folderMenu(f){const ts=lib().filter(t=>t.folder===f);sheetOptions(lastSeg(f),[
   {icon:ICON.playNext,label:'Riproduci',fn:()=>startContext(sorted(ts).map(t=>t.id),sorted(ts)[0].id,lastSeg(f))},
   {icon:ICON.image,label:'Cambia copertina della cartella',forId:'coverIn',fn:()=>{coverTarget={folder:f}}},
-  ...(S.covers[f]?[{icon:ICON.undo,label:'Togli copertina della cartella',fn:async()=>{delete S.covers[f];await idb.del('meta','cover:'+f);render();updateNow()}}]:[]),
+  ...(S.covers[f]?[{icon:ICON.undo,label:'Togli copertina della cartella',fn:async()=>{delete S.covers[f];await idb.del('meta','cover:'+f);coverTouch('f:'+f);render();updateNow()}}]:[]),
   ...(ts.some(t=>!t.demo)?[{icon:ICON.trash,label:`Elimina i ${ts.length} brani dal player`,danger:true,confirm:'Tocca di nuovo per eliminarli',fn:async()=>{trashAdd(ts);await removeTracks(ts.map(t=>t.id),true);toast('Cartella eliminata dal player')}}]:[])])}
-function openFolder(f){S.tab='folder';S.folder=f;S.query='';$('q').value='';$('qClr').classList.remove('show');render();window.scrollTo(0,0)}
+function openFolder(f){S.tab='folder';S.folder=f;S.pl=null;S.query='';$('q').value='';$('qClr').classList.remove('show');render();window.scrollTo(0,0)}
 
+
+/* ================= dati personali sincronizzati =================
+   Preferiti, ascolti, nomi cambiati, playlist ed eliminati stanno anche in un piccolo file nella cartella Dropbox
+   (uno per account: .studio-<account>.json), così sono uguali su tutti i dispositivi e tornano dopo una reinstallazione.
+   Le copertine scelte a mano stanno in un secondo file (.studio-<account>-cover.json), caricato solo quando cambiano.
+   Regola: per ogni dato vince la modifica più recente; gli ascolti si sommano tra i dispositivi. */
+const DEV=(()=>{let v=ls.get('sp-dev');if(!v){v=uid();ls.set('sp-dev',v)}return v})();
+const SYNC={st:{doc:null,rev:null,hash:null,sent:''},cv:{doc:null,rev:null,hash:null,sent:''},dirty:false,cdirty:false,timer:0,busy:false,off:false};
+const jget=(k,d)=>{try{const v=JSON.parse(ls.get(k)||'null');return v&&typeof v==='object'?v:d}catch(e){return d}};
+const syncHome=()=>{for(const f of SET.dbxFolders){const a=acctById(f.acct);if(a&&a.refresh&&a.id)return{f,ac:a}}return null};
+const syncName=(ac,kind)=>'.studio-'+String(ac.id).replace(/[^a-z0-9]/gi,'').slice(-14)+(kind?'-'+kind:'')+'.json';
+const syncPath=(h,kind)=>(h.f.path||'')+'/'+syncName(h.ac,kind);
+const cvAt=()=>jget('sp-cvat',{});
+function coverTouch(key){const o=cvAt();o[key]=Date.now();ls.set('sp-cvat',JSON.stringify(o));syncDirty(true)}
+const hxGet=()=>jget('sp-hx',{});
+function syncDirty(cov){SYNC.dirty=true;if(cov)SYNC.cdirty=true;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(syncPush,2500)}
+async function syncLoad(){try{const a=await idb.get('meta','sync:state');if(a&&a.doc)Object.assign(SYNC.st,a);const b=await idb.get('meta','sync:covers');if(b&&b.doc)Object.assign(SYNC.cv,b)}catch(e){}}
+const syncKeep=slot=>idb.put('meta',{doc:slot.doc,rev:slot.rev,hash:slot.hash},slot===SYNC.st?'sync:state':'sync:covers');
+const nameTs=t=>t.nameAt||(t.name!==clean(t.file)?1:0);
+/* stato locale sopra l'ultimo stato conosciuto: quello che qui è più recente vince, il resto resta com'è */
+function syncBuild(){const d=JSON.parse(JSON.stringify(SYNC.st.doc||{}));d.v=1;d.t=d.t||{};d.pl=d.pl||{};d.h=d.h||{};
+  for(const t of S.tracks){if(!isCloud(t))continue;if(t.own==null)t.own=t.plays||0;const e=d.t[t.id]||{};
+    const ft=t.favAt||(t.fav?1:0);if(ft>(e.ft||0)){e.f=t.fav?1:0;e.ft=ft}
+    const nt=nameTs(t);if(nt>(e.nt||0)){e.n=t.name;e.nt=nt}
+    if(t.own>0){e.p=e.p||{};if(t.own>(e.p[DEV]||0))e.p[DEV]=t.own}
+    if(e.ft||e.nt||e.p)d.t[t.id]=e}
+  const pl=plGet();for(const id in pl)if(!d.pl[id]||(pl[id].at||0)>(d.pl[id].at||0))d.pl[id]=pl[id];
+  const tr=trashGet(),hx=hxGet();
+  for(const id of hiddenIds()){const m=tr[id];if(!m||!m.at||m.dup)continue;const ha=m.ha||m.at,e=d.h[id]||{};if(ha>(e.ha||0))d.h[id]={...m,ha,x:e.x||0}}
+  for(const id in hx){const e=d.h[id]||{};if(hx[id]>(e.x||0))d.h[id]={...e,x:hx[id]}}
+  return d}
+async function syncApply(d){if(!d)return false;let ch=false;
+  const hid=new Set(hiddenIds()),tr=jget('sp-trash',{}),hx=hxGet(),gone=[];let hc=false;
+  for(const id in d.h||{}){const e=d.h[id],on=!!e.at&&!e.dup&&(e.ha||0)>(e.x||0),lha=hid.has(id)?((tr[id]&&(tr[id].ha||tr[id].at))||1):0;
+    if(on&&!hid.has(id)&&(e.ha||0)>(hx[id]||0)){hid.add(id);const{x,...m}=e;tr[id]=m;hc=true;if(S.byId.has(id))gone.push(id)}
+    else if(!on&&hid.has(id)&&(e.x||0)>lha){hid.delete(id);delete tr[id];hx[id]=e.x;hc=true}}
+  if(hc){ls.set('sp-hidden',JSON.stringify([...hid]));ls.set('sp-trash',JSON.stringify(tr));ls.set('sp-hx',JSON.stringify(hx));ch=true}
+  if(gone.length)await removeTracks(gone,true);
+  for(const t of S.tracks){if(!isCloud(t))continue;if(t.own==null)t.own=t.plays||0;const e=(d.t||{})[t.id];if(!e)continue;let c=false;
+    if((e.ft||0)>(t.favAt||(t.fav?1:0))){t.fav=!!e.f;t.favAt=e.ft;c=true}
+    if(e.n&&(e.nt||0)>nameTs(t)){t.name=e.n;t.nameAt=e.nt;c=true}
+    if(e.p){let o=0;for(const k in e.p)if(k!==DEV)o+=+e.p[k]||0;if(t.own+o!==(t.plays||0)){t.plays=t.own+o;c=true}}
+    if(c){ch=true;await saveTrack(t)}}
+  const pl=plGet();let pc=false;for(const id in d.pl||{})if(!pl[id]||(d.pl[id].at||0)>(pl[id].at||0)){pl[id]=d.pl[id];pc=true}
+  if(pc){ls.set('sp-pl',JSON.stringify(pl));ch=true}
+  return ch}
+function coverBuild(){const d=JSON.parse(JSON.stringify(SYNC.cv.doc||{}));d.v=1;d.c=d.c||{};const at=cvAt();let m=false;
+  for(const t of S.tracks)if(isCloud(t)&&t.cover&&!at['t:'+t.id]){at['t:'+t.id]=1;m=true}
+  for(const f in S.covers)if(!at['f:'+f]&&!ls.get('sp-cvh:'+f)){at['f:'+f]=1;m=true}
+  if(m)ls.set('sp-cvat',JSON.stringify(at));
+  for(const k in at){if((at[k]||0)<=((d.c[k]&&d.c[k].at)||0))continue;const v=k[0]==='t'?(S.byId.get(k.slice(2))||{}).cover:S.covers[k.slice(2)];
+    if(k[0]==='t'&&!S.byId.has(k.slice(2)))continue;d.c[k]={d:v||null,at:at[k]}}
+  return d}
+async function coverApply(d){if(!d||!d.c)return false;const at=cvAt();let ch=false;
+  for(const k in d.c){const e=d.c[k];if((e.at||0)<=(at[k]||0))continue;
+    if(k[0]==='t'){const t=S.byId.get(k.slice(2));if(!t)continue;if(e.d)t.cover=e.d;else delete t.cover;await saveTrack(t)}
+    else{const f=k.slice(2);if(e.d){S.covers[f]=e.d;await idb.put('meta',e.d,'cover:'+f)}else{delete S.covers[f];await idb.del('meta','cover:'+f)}}
+    at[k]=e.at;ch=true}
+  if(ch)ls.set('sp-cvat',JSON.stringify(at));return ch}
+async function syncFetch(ac,path){try{const m=await dbxApi(ac,'files/get_metadata',{path});const doc=JSON.parse(await(await dbxDownload(ac,'rev:'+m.rev)).text());return{doc,rev:m.rev,hash:m.content_hash}}
+  catch(e){if(/not_found/.test(String(e.body||e.message||'')))return{doc:null,rev:null,hash:null};throw e}}
+async function syncPut(ac,path,slot,build,apply,retry=true){const doc=build(),body=JSON.stringify(doc);
+  if(body===slot.sent||(slot.rev&&body===JSON.stringify(slot.doc))){slot.sent=body;return true}
+  if(!slot.rev&&!Object.values(doc).some(v=>v&&typeof v==='object'&&Object.keys(v).length)){slot.sent=body;return true}
+  try{const r=await dbxFetch(ac,'https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','Dropbox-API-Arg':hdrArg({path,mode:slot.rev?{'.tag':'update',update:slot.rev}:'add',autorename:false,mute:true})},body:new Blob([body])});
+    const j=await r.json();slot.doc=doc;slot.rev=j.rev;slot.hash=j.content_hash;slot.sent=body;await syncKeep(slot);return true}
+  catch(e){const b=String(e.body||e.message||'');
+    if(/missing_scope|no_write_permission|disallowed|insufficient_space/.test(b)||e.status===403){SYNC.off=true;return false}
+    if(e.status===409&&retry){const r=await syncFetch(ac,path);slot.doc=r.doc;slot.rev=r.rev;slot.hash=r.hash;if(await apply(build())){render();if(S.curId)updateNow()}return syncPut(ac,path,slot,build,apply,false)}
+    return false}}
+async function syncPush(){clearTimeout(SYNC.timer);const h=syncHome();if(!h||SYNC.off||navigator.onLine===false)return;if(SYNC.busy){SYNC.timer=setTimeout(syncPush,1500);return}SYNC.busy=true;
+  try{if(SYNC.dirty){SYNC.dirty=false;if(!(await syncPut(h.ac,syncPath(h),SYNC.st,syncBuild,syncApply)))SYNC.dirty=!SYNC.off}
+    if(SYNC.cdirty){SYNC.cdirty=false;if(!(await syncPut(h.ac,syncPath(h,'cover'),SYNC.cv,coverBuild,coverApply)))SYNC.cdirty=!SYNC.off}}
+  catch(e){}finally{SYNC.busy=false}}
+/* chiamata da dbxSync con l'elenco dei file della cartella: se il file personale è cambiato lo scarico e unisco */
+async function syncPull(ac,f,ents){const h=syncHome();if(!h||h.f!==f||SYNC.off)return false;let ch=false;
+  const base=(f.path||'').toLowerCase(),find=n=>ents.find(e=>e['.tag']==='file'&&e.name===n&&dirOf(e.path_lower)===base);
+  for(const[kind,slot,build,apply]of[['',SYNC.st,syncBuild,syncApply],['cover',SYNC.cv,coverBuild,coverApply]]){const e=find(syncName(ac,kind));
+    try{if(e&&e.content_hash!==slot.hash){slot.doc=JSON.parse(await(await dbxDownload(ac,e.id)).text());slot.rev=e.rev;slot.hash=e.content_hash;slot.sent=''}
+      else if(!e&&slot.rev){slot.rev=null;slot.hash=null;slot.sent=''}
+      const m=build();if(await apply(m))ch=true;
+      if(JSON.stringify(m)!==JSON.stringify(slot.doc||{})){if(kind)SYNC.cdirty=true;else SYNC.dirty=true}
+      if(e)await syncKeep(slot)}catch(x){}}
+  if(SYNC.dirty||SYNC.cdirty){clearTimeout(SYNC.timer);SYNC.timer=setTimeout(syncPush,1200)}
+  return ch}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&(SYNC.dirty||SYNC.cdirty))syncPush()});
+
+/* ================= playlist (personali) ================= */
+const plGet=()=>jget('sp-pl',{});
+const plSave=o=>{ls.set('sp-pl',JSON.stringify(o));syncDirty()};
+const plList=()=>Object.entries(plGet()).filter(([,q])=>!q.del).map(([id,q])=>({id,name:q.name||'Playlist',ids:q.ids||[]})).sort((a,b)=>a.name.localeCompare(b.name,'it',{numeric:true,sensitivity:'base'}));
+const plTracks=id=>{const q=plGet()[id];return q&&!q.del?(q.ids||[]).map(i=>S.byId.get(i)).filter(Boolean):[]};
+function openPl(id){S.tab='playlist';S.pl=id;S.folder=null;S.query='';$('q').value='';$('qClr').classList.remove('show');render();window.scrollTo(0,0)}
+function plNameSheet(id,addIds){const o=plGet(),cur=id&&o[id];
+  openSheet(`<h2 class="sh-title">${cur?'Rinomina playlist':'Nuova playlist'}</h2><input class="field" id="plN" value="${esc(cur?cur.name:'')}" placeholder="Nome della playlist" maxlength="60" autocomplete="off"><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn ghost" id="plC">Annulla</button><button class="btn" id="plS">${cur?'Salva':'Crea'}</button></div>`,
+  el=>{const f=el.querySelector('#plN');const save=()=>{const v=f.value.trim();if(!v){toast('Dai un nome alla playlist');return}const o=plGet();let nid=id;
+      if(cur&&o[id]){o[id].name=v;o[id].at=Date.now()}else{nid='p'+uid();o[nid]={name:v,ids:[...(addIds||[])],at:Date.now()}}
+      plSave(o);closeSheet();if(!cur&&addIds&&addIds.length)toast('Aggiunto a '+v);if(!cur&&!(addIds&&addIds.length))openPl(nid);else render()};
+    el.querySelector('#plS').onclick=save;el.querySelector('#plC').onclick=closeSheet;f.onkeydown=e=>{if(e.key==='Enter')save()}})}
+function plAdd(pid,tid){const o=plGet(),q=o[pid];if(!q)return;q.ids=q.ids||[];if(q.ids.includes(tid)){toast('È già in "'+q.name+'"');return}q.ids.push(tid);q.at=Date.now();plSave(o);toast('Aggiunto a '+q.name,1800);if(S.tab==='playlists'||S.tab==='playlist')render()}
+function plRemove(pid,tid){const o=plGet(),q=o[pid];if(!q)return;q.ids=(q.ids||[]).filter(i=>i!==tid);q.at=Date.now();plSave(o);render();toast('Tolto dalla playlist',1600)}
+function plAddSheet(tid){const l=plList();sheetOptions('Aggiungi a playlist',[...l.map(q=>({icon:ICON.playNext,label:q.name,hint:q.ids.includes(tid)?'c\'è già':q.ids.length===1?'1 brano':q.ids.length+' brani',fn:()=>plAdd(q.id,tid)})),
+  {icon:ICON.queueAdd,label:'Nuova playlist…',fn:()=>setTimeout(()=>plNameSheet(null,[tid]),320)}],l.length?'':'Non hai ancora playlist: creane una.')}
+function plMenu(pid){const q=plGet()[pid];if(!q)return;const ts=plTracks(pid);sheetOptions(q.name,[
+  ...(ts.length?[{icon:ICON.playNext,label:'Riproduci',fn:()=>startContext(ts.map(t=>t.id),ts[0].id,q.name)}]:[]),
+  {icon:ICON.pencil,label:'Rinomina',fn:()=>setTimeout(()=>plNameSheet(pid),320)},
+  {icon:ICON.trash,label:'Elimina la playlist',danger:true,confirm:'Tocca di nuovo per eliminarla',fn:()=>{const o=plGet();o[pid]={name:q.name,ids:[],del:1,at:Date.now()};plSave(o);S.tab='playlists';S.pl=null;render();toast('Playlist eliminata')}}],
+  'Le playlist sono solo tue e le ritrovi su tutti i tuoi dispositivi. I brani non vengono spostati né cancellati.')}
+/* riordino: trascina la maniglia a destra del brano */
+(()=>{const L=$('list');let d=null;
+  L.addEventListener('pointerdown',e=>{const g=e.target.closest('[data-grip]');if(!g||S.tab!=='playlist')return;const r=g.closest('.row');if(!r)return;e.preventDefault();
+    const rows=[...L.querySelectorAll('.row')];d={r,rows,i:rows.indexOf(r),to:rows.indexOf(r),y:e.clientY,h:r.offsetHeight||64};try{g.setPointerCapture(e.pointerId)}catch(x){}
+    L.classList.remove('anim');r.classList.add('lift');L.classList.add('sorting');try{navigator.vibrate&&navigator.vibrate(8)}catch(x){}});
+  L.addEventListener('pointermove',e=>{if(!d)return;const dy=e.clientY-d.y;d.r.style.transform=`translateY(${dy}px)`;
+    const to=Math.max(0,Math.min(d.rows.length-1,d.i+Math.round(dy/d.h)));if(to===d.to)return;d.to=to;
+    d.rows.forEach((x,k)=>{if(x===d.r)return;x.style.transform=k>d.i&&k<=to?`translateY(${-d.h}px)`:k<d.i&&k>=to?`translateY(${d.h}px)`:''})});
+  const end=()=>{if(!d)return;const s0=d;d=null;L.classList.remove('sorting');s0.rows.forEach(x=>{x.style.transform='';x.classList.remove('lift')});
+    if(s0.to===s0.i)return;const o=plGet(),q=o[S.pl];if(!q)return;const vis=[...S.visible];const[m]=vis.splice(s0.i,1);vis.splice(s0.to,0,m);
+    const set=new Set(vis);q.ids=[...vis,...(q.ids||[]).filter(i=>!set.has(i))];q.at=Date.now();plSave(o);render()};
+  L.addEventListener('pointerup',end);L.addEventListener('pointercancel',end)})();
 
 /* ================= eliminati =================
    Un brano cloud eliminato dal player viene solo nascosto: il file resta su Dropbox e da "Eliminati" si può ripristinare.
@@ -1283,16 +1417,17 @@ let hidSeen={};
 const trashGet=()=>{let o={};try{o=JSON.parse(ls.get('sp-trash')||'{}')||{}}catch(e){}const h=new Set(hiddenIds());for(const k in o)if(!h.has(k))delete o[k];return o};
 const trashSet=o=>ls.set('sp-trash',JSON.stringify(o));
 function trashAdd(ts,dup){const h=new Set(hiddenIds());ts=ts.filter(t=>isCloud(t));ts.forEach(t=>h.add(t.id));ls.set('sp-hidden',JSON.stringify([...h]));const o=trashGet();
-  for(const t of ts)o[t.id]={n:t.name,f:t.folder,src:t.src,dbxId:t.dbxId,acct:t.acct,hash:t.hash,...(dup?{dup:1}:{at:Date.now()})};trashSet(o)}
-function trashRestore(ids){const x=new Set(ids);ls.set('sp-hidden',JSON.stringify(hiddenIds().filter(i=>!x.has(i))));trashSet(trashGet())}
+  for(const t of ts)o[t.id]={n:t.name,f:t.folder,src:t.src,dbxId:t.dbxId,acct:t.acct,hash:t.hash,ha:Date.now(),...(dup?{dup:1}:{at:Date.now()})};trashSet(o);syncDirty()}
+function trashRestore(ids){const x=new Set(ids),hx=hxGet(),now=Date.now();ids.forEach(i=>hx[i]=now);ls.set('sp-hx',JSON.stringify(hx));ls.set('sp-hidden',JSON.stringify(hiddenIds().filter(i=>!x.has(i))));trashSet(trashGet());syncDirty()}
 let purging=false;
 async function trashPurge(only){const days=+SET.trashDays||0;if(purging||(!days&&!only)||navigator.onLine===false)return 0;purging=true;let n=0;
   try{const o=trashGet(),now=Date.now();
-    for(const id of Object.keys(o)){const x=o[id];if(x.dup||!x.at||x.src!=='dbx'||!x.dbxId)continue;if(only?!only.includes(id):now-x.at<days*864e5)continue;
-      const ac=acctById(x.acct)||accts[0];if(!ac||!ac.refresh)continue;
-      try{const m=await dbxApi(ac,'files/get_metadata',{path:x.dbxId});
+    for(const id of(only||Object.keys(o))){const x=o[id]||{},isDbx=x.src?x.src==='dbx':String(id).startsWith('dbx:'),fid=x.dbxId||(isDbx?String(id).slice(4):'');
+      if(!isDbx||!fid)continue;if(!only&&(x.dup||!x.at||now-x.at<days*864e5))continue;
+      const ac=acctById(x.acct)||accts.find(a=>a.refresh);if(!ac||!ac.refresh)continue;
+      try{const m=await dbxApi(ac,'files/get_metadata',{path:fid});
         if(x.hash&&m.content_hash&&m.content_hash!==x.hash){trashRestore([id]);continue}/* riesportato dopo l'eliminazione: è un brano nuovo, torna in libreria */
-        await dbxApi(ac,'files/delete_v2',{path:x.dbxId});trashRestore([id]);n++}
+        await dbxApi(ac,'files/delete_v2',{path:fid});trashRestore([id]);n++}
       catch(e){const b=String(e.body||e.message||'');if(/not_found/.test(b)){trashRestore([id]);continue}
         if(/missing_scope|files\.content\.write/.test(b))toast('Per cancellare da Dropbox serve il permesso di scrittura: ricollega Dropbox dalle impostazioni',5000);
         else if(/no_write_permission|disallowed/.test(b)||e.status===403)toast('Questa cartella Dropbox è in sola lettura: non posso cancellare i file',4500);break}}}
@@ -1305,13 +1440,17 @@ function trashSheet(){const o=trashGet(),days=+SET.trashDays||0,now=Date.now();
     else q.push(r.dup?'doppione nascosto':'nascosto');return q.filter(Boolean).join(' · ')};
   const real=rows.filter(r=>r.at&&r.src==='dbx');
   openSheet(`<h2 class="sh-title">Eliminati</h2>
-    ${rows.length?`<div class="opts">${rows.map((r,i)=>`<div class="opt"><span class="lbl">${esc(r.n)}<span class="s" style="display:block;margin-top:2px;white-space:normal">${esc(sub(r))}</span></span><button class="acc" data-res="${i}" style="font-size:15px">Ripristina</button></div>`).join('')}</div>
+    ${rows.length?`<div class="opts">${rows.map((r,i)=>`<div class="opt"><span class="lbl">${esc(r.n)}<span class="s" style="display:block;margin-top:2px;white-space:normal">${esc(sub(r))}</span></span><button class="acc" data-res="${i}" style="font-size:15px">Ripristina</button>${r.src==='dbx'?`<button class="ib" data-del="${i}" aria-label="Cancella ${esc(r.n)} da Dropbox" style="width:36px;height:36px;color:var(--danger);flex:none">${ICON.trash}</button>`:''}</div>`).join('')}</div>
     <div class="opts"><button class="opt" id="trAll">${ICON.undo}<span class="lbl">Ripristina tutti</span><span class="hint">${rows.length}</span></button>${real.length?`<button class="opt danger" id="trNow">${ICON.trash}<span class="lbl">Cancella subito da Dropbox</span><span class="hint">${real.length}</span></button>`:''}</div>`:'<p class="note">Nessun brano eliminato.</p>'}
     <div class="sec">Cancella da Dropbox dopo</div>
     <div class="segs" id="trSeg">${TRASH_OPTS.map(([v,l])=>`<button data-d="${v}" aria-pressed="${days===v}">${l}</button>`).join('')}</div>
     <p class="note">Un brano eliminato sparisce dal player ma il file resta su Dropbox, e da qui puoi ripristinarlo. Se scegli un periodo, passato quel tempo il file viene cancellato davvero dalla cartella Dropbox: sparisce anche per chi la condivide. Dropbox lo tiene comunque nel suo cestino per altri 30 giorni. Con "Mai" i file non vengono mai toccati. I doppioni nascosti non vengono mai cancellati.</p>`,
   el=>{const back=()=>{if(SET.dbxFolders.length)dbxSync(false);if(SET.gdRoot)gdSync(false)};
     el.querySelectorAll('[data-res]').forEach(b=>b.onclick=()=>{const r=rows[+b.dataset.res];trashRestore([r.id]);toast('Ripristinato: '+r.n,2000);back();trashSheet()});
+    el.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{const r=rows[+b.dataset.del],row=b.closest('.opt');
+      if(!b.dataset.armed){b.dataset.armed='1';row.querySelector('.s').textContent='Tocca di nuovo il cestino: sparisce da Dropbox per tutti';row.querySelector('.s').style.color='var(--danger)';return}
+      b.disabled=true;const n=await trashPurge([r.id]);const still=hiddenIds().includes(r.id);
+      toast(n?'"'+r.n+'" cancellato da Dropbox':still?'Non sono riuscito a cancellarlo: riprova tra poco':'"'+r.n+'" è stato riesportato: torna in libreria',3200);if(!still)back();if(!$('sheet').hidden)trashSheet()});
     const all=el.querySelector('#trAll');if(all)all.onclick=()=>{trashRestore(rows.map(r=>r.id));closeSheet();toast(rows.length===1?'1 brano ripristinato':`${rows.length} brani ripristinati`);back()};
     const nw=el.querySelector('#trNow');if(nw)nw.onclick=async()=>{if(!nw.dataset.armed){nw.dataset.armed='1';nw.querySelector('.lbl').textContent='Tocca di nuovo: spariscono da Dropbox per tutti';return}
       nw.disabled=true;const n=await trashPurge(real.map(r=>r.id));toast(n?(n===1?'1 brano cancellato da Dropbox':`${n} brani cancellati da Dropbox`):'Non sono riuscito a cancellare: riprova tra poco',3200);if(!$('sheet').hidden)trashSheet()};
@@ -1332,7 +1471,7 @@ function findDupes(){const groups=new Map();
 const dupeCount=()=>findDupes().reduce((a,d)=>a+d.drop.length,0);
 async function dedupe(quiet){const ds=findDupes();if(!ds.length){if(!quiet)toast('Nessun doppione');return 0}
   const h=new Set(hiddenIds());let n=0;const ids=[],dups=[];
-  for(const{keep,drop}of ds){for(const d of drop){if(d.fav)keep.fav=true;keep.plays=(keep.plays||0)+(d.plays||0);if(!keep.cover&&d.cover)keep.cover=d.cover;
+  for(const{keep,drop}of ds){for(const d of drop){if(d.fav&&!keep.fav){keep.fav=true;keep.favAt=Date.now()}keep.plays=(keep.plays||0)+(d.plays||0);keep.own=(keep.own==null?(keep.plays||0)-(d.plays||0):keep.own)+(d.own==null?(d.plays||0):d.own);if(!keep.cover&&d.cover)keep.cover=d.cover;
       const nt=ls.get('sp-notes:'+d.id);if(nt&&!ls.get('sp-notes:'+keep.id))ls.set('sp-notes:'+keep.id,nt);
       if(d.id===S.curId){S.curId=keep.id;if(urls[d.id]){urls[keep.id]=urls[d.id];delete urls[d.id]}setMedia(keep)}
       S.ctx=S.ctx.map(x=>x===d.id?keep.id:x);if(S.ctxBase)S.ctxBase=S.ctxBase.map(x=>x===d.id?keep.id:x);S.up=S.up.map(x=>x===d.id?keep.id:x);
@@ -1570,10 +1709,11 @@ setInterval(async()=>{if(document.hidden||dbxSyncing||dbxPolling||!dbxOn())retur
 async function dbxSync(manual){if(dbxSyncing)return;
   const live=SET.dbxFolders.filter(f=>{const a=acctById(f.acct);return a&&a.refresh});if(!live.length)return;dbxSyncing=true;
   const P=$('prog'),PT=$('progT'),PB=$('progBar');if(manual){P.hidden=false;PT.textContent='Controllo Dropbox…';PB.style.width='15%'}
-  try{const seen=new Set(),okKeys=new Set(),fails=[];let added=0,updated=0,nAud=0;const fresh=[];const hid=new Set(hiddenIds());let fi=0;
+  try{const seen=new Set(),okKeys=new Set(),fails=[];let added=0,updated=0,nAud=0;const fresh=[];let hid=new Set(hiddenIds());let fi=0;
     for(const f of live){const ac=acctById(f.acct),k=fkey(f);if(manual)PB.style.width=(15+70*fi++/live.length)+'%';
       let ents;try{ents=await dbxList(ac,f)}catch(e){fails.push({f,e});continue}
       okKeys.add(k);const dm=await dbxLoadDates(ac,k,ents);
+      if(await syncPull(ac,f,ents))hid=new Set(hiddenIds());
       const files=ents.filter(e=>e['.tag']==='file'&&e.is_downloadable!==false);
       const aud=files.filter(e=>isAudio({name:e.name,type:''})),imgs=files.filter(e=>isImg({name:e.name,type:''}));nAud+=aud.length;
       for(const e of aud){const id='dbx:'+e.id;if(hid.has(id)){hidSeen[id]={n:clean(e.name),f:dbxFolderOf(f,e)};continue}if(seen.has(id))continue;seen.add(id);const folder=dbxFolderOf(f,e);let t=S.byId.get(id);
@@ -1593,6 +1733,7 @@ async function dbxSync(manual){if(dbxSyncing)return;
     const gone=S.tracks.filter(t=>t.src==='dbx'&&!seen.has(t.id)&&(t.root?(okKeys.has(t.root)||!keys.has(t.root)):!fails.length)).map(t=>t.id);
     if(gone.length)await removeTracks(gone,true);
     if(own().length&&S.tracks.some(t=>t.demo)){if(S.byId.get(S.curId)?.demo){audio.pause();S.curId=null;$('mini').hidden=true}S.tracks=S.tracks.filter(t=>!t.demo);S.byId=new Map(S.tracks.map(t=>[t.id,t]))}
+    if(SYNC.st.doc)await syncApply(SYNC.st.doc);if(SYNC.cv.doc)await coverApply(SYNC.cv.doc);
     if(okKeys.size)ls.set('sp-dbx-last',String(Date.now()));render();if(S.curId)updateNow();
     const parts=[];if(added)parts.push(added===1?'1 brano nuovo':`${added} brani nuovi`);if(updated)parts.push(updated===1?'1 aggiornato':`${updated} aggiornati`);if(gone.length)parts.push(`${gone.length} tolti`);
     const miss=fails.filter(x=>x.e&&x.e.status===409);
@@ -1825,7 +1966,7 @@ $('jamPill').onclick=()=>{if(jamIsGuest()&&jam.needTap){jam.needTap=false;jamUI(
   jamSheet()};
 
 /* ================= eventi ================= */
-$('seg').onclick=e=>{const b=e.target.closest('button[data-tab]');if(!b)return;S.tab=b.dataset.tab;S.folder=null;render();window.scrollTo(0,0)};
+$('seg').onclick=e=>{const b=e.target.closest('button[data-tab]');if(!b)return;S.tab=b.dataset.tab;S.folder=null;S.pl=null;render();window.scrollTo(0,0)};
 $('navSet').onclick=settingsSheet;$('navAdd').onclick=addSheet;$('navBack').onclick=()=>$('back').click();
 (()=>{const nb=$('navbar');let on=false;const upd=()=>{const v=window.scrollY>70;if(v!==on){on=v;nb.classList.toggle('show',v);nb.setAttribute('aria-hidden',String(!v))}};
   window.addEventListener('scroll',upd,{passive:true});upd()})();
@@ -1833,18 +1974,18 @@ $('navSet').onclick=settingsSheet;$('navAdd').onclick=addSheet;$('navBack').oncl
   window.addEventListener('scroll',()=>{const y=window.scrollY,d=y-lastY;lastY=y;if((d>0)!==(acc>0))acc=0;acc+=d;
     const atEnd=window.innerHeight+y>=document.documentElement.scrollHeight-4;
     if(y<80||acc<-24)m.classList.remove('compact');else if(acc>36&&!atEnd)m.classList.add('compact')},{passive:true})})();
-$('back').onclick=()=>{S.tab='folders';S.folder=null;render()};
-$('folderMore').onclick=()=>folderMenu(S.folder);
-$('grid').onclick=e=>{if(e.target.closest('[data-act="add"]'))return;const c=e.target.closest('[data-folder]');if(c)openFolder(c.dataset.folder)};
-$('list').addEventListener('click',e=>{const m=e.target.closest('[data-more]');if(m){e.stopPropagation();trackMenu(m.dataset.more);return}
+$('back').onclick=()=>{if(S.tab==='playlist'){S.tab='playlists';S.pl=null}else{S.tab='folders';S.folder=null}render()};
+$('folderMore').onclick=()=>{if(S.tab==='playlist')plMenu(S.pl);else folderMenu(S.folder)};
+$('grid').onclick=e=>{if(e.target.closest('[data-act]'))return;const q=e.target.closest('[data-pl]');if(q){openPl(q.dataset.pl);return}const c=e.target.closest('[data-folder]');if(c)openFolder(c.dataset.folder)};
+$('list').addEventListener('click',e=>{if(e.target.closest('[data-grip]'))return;const m=e.target.closest('[data-more]');if(m){e.stopPropagation();trackMenu(m.dataset.more);return}
   const r=e.target.closest('.row');if(!r)return;const id=r.dataset.id;if(id===S.curId){if(audio.paused)toggle();openNp();return}startContext(S.visible,id,$('h1').textContent)});
 $('list').addEventListener('keydown',e=>{if(e.key!=='Enter')return;const r=e.target.closest('.row');if(r&&e.target===r)r.click()});
-let lpT=null,lpX=0,lpY=0;$('list').addEventListener('touchstart',e=>{const r=e.target.closest('.row');if(!r||e.target.closest('[data-more]'))return;lpX=e.touches[0].clientX;lpY=e.touches[0].clientY;lpT=setTimeout(()=>{lpT='done';try{navigator.vibrate&&navigator.vibrate(10)}catch(x){}trackMenu(r.dataset.id)},550)},{passive:true});
+let lpT=null,lpX=0,lpY=0;$('list').addEventListener('touchstart',e=>{const r=e.target.closest('.row');if(!r||e.target.closest('[data-more],[data-grip]'))return;lpX=e.touches[0].clientX;lpY=e.touches[0].clientY;lpT=setTimeout(()=>{lpT='done';try{navigator.vibrate&&navigator.vibrate(10)}catch(x){}trackMenu(r.dataset.id)},550)},{passive:true});
 $('list').addEventListener('touchmove',e=>{if(lpT&&lpT!=='done'){const t=e.touches[0];if(Math.hypot(t.clientX-lpX,t.clientY-lpY)>10){clearTimeout(lpT);lpT=null}}},{passive:true});
 $('list').addEventListener('touchcancel',()=>{if(lpT!=='done'){clearTimeout(lpT);lpT=null}},{passive:true});
 $('list').addEventListener('touchend',e=>{if(lpT==='done')e.preventDefault();else clearTimeout(lpT);lpT=null});
 $('list').addEventListener('contextmenu',e=>{const r=e.target.closest('.row');if(r){e.preventDefault();trackMenu(r.dataset.id)}});
-document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a)return;if(a.dataset.act==='add')addSheet();if(a.dataset.act==='dedupe')dedupe(false);if(a.dataset.act==='goFolders'){S.tab='folders';S.folder=null;render();window.scrollTo(0,0)}});
+document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a)return;if(a.dataset.act==='add')addSheet();if(a.dataset.act==='newpl')plNameSheet();if(a.dataset.act==='dedupe')dedupe(false);if(a.dataset.act==='goFolders'){S.tab='folders';S.folder=null;render();window.scrollTo(0,0)}});
 const syncQ=()=>$('qClr').classList.toggle('show',!!$('q').value);
 $('q').oninput=e=>{S.query=e.target.value;syncQ();render()};
 $('qClr').addEventListener('pointerdown',e=>e.preventDefault());
@@ -1878,7 +2019,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014031418';
+const APP_VER='20261014033351';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -1931,7 +2072,7 @@ $('upIn').addEventListener('change',e=>{if(!$('sheet').hidden)closeSheet();const
 (()=>{const L=$('list');let st=null;
   const QI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h12M4 12h12M4 18h7"/><path d="M18 14v6M15 17h6"/></svg>';
   const reset=r=>{r.classList.remove('swiping');r.style.setProperty('--sx','0px')};
-  L.addEventListener('touchstart',e=>{const r=e.target.closest('.row');if(!r||e.target.closest('[data-more]')){st=null;return}const t=e.touches[0];st={r,x:t.clientX,y:t.clientY,dir:null,dx:0,arm:false,bg:null}},{passive:true});
+  L.addEventListener('touchstart',e=>{const r=e.target.closest('.row');if(!r||e.target.closest('[data-more],[data-grip]')){st=null;return}const t=e.touches[0];st={r,x:t.clientX,y:t.clientY,dir:null,dx:0,arm:false,bg:null}},{passive:true});
   L.addEventListener('touchmove',e=>{if(!st)return;const t=e.touches[0],dx=t.clientX-st.x,dy=t.clientY-st.y;
     if(!st.dir&&(Math.abs(dx)>10||Math.abs(dy)>10))st.dir=Math.abs(dx)>Math.abs(dy)*1.3&&dx>0?'h':'v';
     if(st.dir!=='h')return;
@@ -1975,6 +2116,7 @@ function installBar(){if(!instEvt||$('instBar')||isApp())return;const d=document
   /* ora Dropbox vince sui doppioni: i brani Dropbox nascosti come doppioni di Drive tornano visibili (una volta sola) */
   if(SET.uiV!==4){SET.uiV=4;if(!SET.coverStyle||SET.coverStyle==='classica')SET.coverStyle='grafite';SET.tech=false;saveSet();applySettings();render();if(S.curId)updateNow()}
   if(SET.dedupeV!==2){SET.dedupeV=2;saveSet();const h=hiddenIds();if(h.some(x=>String(x).startsWith('dbx:')))ls.set('sp-hidden',JSON.stringify(h.filter(x=>!String(x).startsWith('dbx:'))))}
+  await syncLoad();
   jamBoot();
   await gdBoot();
   await dbxBoot();
