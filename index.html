@@ -39,7 +39,7 @@
 
 *{box-sizing:border-box}
 html,body{min-height:100%}
-body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 input,textarea{-webkit-user-select:text;user-select:text}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:0}
 button:disabled{opacity:.4;cursor:default}
@@ -83,7 +83,7 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .fhead .path{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
 
 .list{list-style:none;margin:6px 0 0;padding:0}
-.row{display:flex;align-items:center;gap:12px;width:100%;padding:7px 0;cursor:pointer;border-radius:8px;position:relative;touch-action:pan-y}
+.row{display:flex;align-items:center;gap:12px;width:100%;padding:7px 0;cursor:pointer;border-radius:8px;position:relative;touch-action:pan-y;content-visibility:auto;contain-intrinsic-size:auto 64px}
 .row>.art,.row>.meta{transform:translateX(var(--sx,0px));transition:transform .45s cubic-bezier(.34,1.4,.64,1)}
 .row.swiping>.art,.row.swiping>.meta{transition:none}
 .row .qbg{position:absolute;left:0;top:4px;bottom:4px;width:0;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;opacity:0;pointer-events:none;overflow:hidden}
@@ -105,10 +105,10 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 5px;margin-right:6px;vertical-align:1px}
 .tag.ll{color:var(--accent);border-color:currentColor}
 .bars{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:14px;background:rgba(0,0,0,.4)}
-.bars i{width:4px;background:#fff;border-radius:2px;height:8px;animation:eq .9s ease-in-out infinite}
+.bars i{width:4px;background:#fff;border-radius:2px;height:22px;transform-origin:50% 100%;transform:scaleY(.36);animation:eq .9s ease-in-out infinite}
 .bars i:nth-child(2){animation-delay:-.3s}.bars i:nth-child(3){animation-delay:-.6s}
 .paused .bars i{animation-play-state:paused}
-@keyframes eq{0%,100%{height:6px}50%{height:22px}}
+@keyframes eq{0%,100%{transform:scaleY(.27)}50%{transform:scaleY(1)}}
 @keyframes rowIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes pop{0%{transform:scale(1)}35%{transform:scale(1.35)}100%{transform:scale(1)}}
 @keyframes artIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
@@ -189,7 +189,7 @@ button,a,label,.row,.card,.opt,.chip,.ib{touch-action:manipulation}
 .mini .art{width:44px;height:44px;border-radius:7px;flex:none;box-shadow:0 2px 8px rgba(0,0,0,.18)}
 .mini .txt{min-width:0}
 .mini .t{font-size:15px;font-weight:500}
-.mini-prog{position:absolute;left:0;top:-1px;height:2px;background:var(--accent);width:0}
+.mini-prog{position:absolute;left:0;top:-1px;height:2px;background:var(--accent);width:100%;transform:scaleX(0);transform-origin:0 50%}
 
 /* schermata di ascolto */
 .np{position:fixed;inset:0;z-index:10;color:var(--np-fg);background:var(--np-bg);transform:translateY(100%);transition:transform .38s cubic-bezier(.2,.8,.2,1);overflow:hidden;visibility:hidden}
@@ -215,7 +215,7 @@ button,a,label,.row,.card,.opt,.chip,.ib{touch-action:manipulation}
 .scrub{position:relative;padding-block:14px;margin-block:-14px;touch-action:none;cursor:pointer;-webkit-user-select:none;user-select:none}
 .pbar{position:relative;height:7px;border-radius:4px;background:var(--np-track);overflow:hidden;pointer-events:none;transition:height .18s ease,margin .18s ease}
 .scrub.active .pbar{height:13px;margin-block:-3px}
-.pfill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--np-fg);opacity:.85}
+.pfill{position:absolute;left:0;top:0;bottom:0;width:100%;transform:scaleX(0);transform-origin:0 50%;background:var(--np-fg);opacity:.85}
 .scrub.active .pfill{opacity:1}
 .pab{position:absolute;top:0;bottom:0;background:var(--accent);opacity:.35}
 .bubble{position:absolute;bottom:calc(100% - 4px);transform:translateX(-50%);background:var(--np-fg);color:var(--np-bg);border-radius:10px;padding:6px 10px;display:flex;flex-direction:column;align-items:center;gap:1px;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.2);white-space:nowrap}
@@ -261,7 +261,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 .notes textarea::placeholder{color:var(--np-muted)}
 
 /* fogli dal basso */
-.scrim{position:fixed;inset:0;background:var(--scrim);z-index:30;opacity:0;transition:opacity .25s}
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:30;opacity:0;transition:opacity .25s;touch-action:none}
 .scrim.show{opacity:1}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;background:var(--surface);color:var(--fg);border-radius:16px 16px 0 0;max-height:86%;overflow-y:auto;overscroll-behavior:contain;transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.8,.2,1);padding:6px 16px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 40px rgba(0,0,0,.2)}
 .sheet.show{transform:none}
@@ -324,7 +324,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 .mini:has(.open:active){transform:scale(.985)}
 .mini-in{position:relative}
 .mini .art{border-radius:14px}
-.mini-prog{top:auto;bottom:2px;left:18px;height:2px;border-radius:2px;opacity:.85}
+.mini-prog{top:auto;bottom:2px;left:18px;width:calc(100% - 36px);height:2px;border-radius:2px;opacity:.85}
 .toast{bottom:calc(96px + env(safe-area-inset-bottom,0px));background:rgba(28,26,32,.72);color:#fff;backdrop-filter:blur(24px) saturate(1.8);-webkit-backdrop-filter:blur(24px) saturate(1.8);border-radius:18px;padding:11px 16px;box-shadow:0 10px 30px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.14)}
 /* barra in alto */
 .navbar{background:var(--lg-bg);backdrop-filter:blur(30px) saturate(1.9);-webkit-backdrop-filter:blur(30px) saturate(1.9);border-bottom:1px solid var(--lg-line);box-shadow:inset 0 -1px 0 var(--lg-edge)}
@@ -369,7 +369,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 .mini.compact .t{font-size:14px}
 .mini.compact #miniPrev,.mini.compact #miniNext{width:0;opacity:0;transform:scale(.6);pointer-events:none;margin-inline:-3px}
 .mini.compact #miniPlay{width:38px;height:38px}
-@media (prefers-reduced-motion: reduce){.list.anim .row,.grid.anim .card,.pop,.big.swap,.mini.enter,.toast.show{animation:none}.np,.big,.sheet,.scrim{transition:none}.bars i{animation:none;height:12px}}
+@media (prefers-reduced-motion: reduce){.list.anim .row,.grid.anim .card,.pop,.big.swap,.mini.enter,.toast.show{animation:none}.np,.big,.sheet,.scrim{transition:none}.bars i{animation:none;transform:scaleY(.55)}}
 </style>
 
 <div class="navbar" id="navbar" aria-hidden="true">
@@ -589,11 +589,12 @@ const gradient=seed=>{if(SET.coverStyle==='classica')return'var(--cov-bg)';const
 const coverOf=t=>t?(t.cover||S.covers[t.folder]||null):null;
 function paintArt(el,t,seed){const c=coverOf(t);if(c){el.style.background=`url("${c}") center/cover`;el.innerHTML=''}else{el.style.background=gradient(seed||t&&(t.name)||'');el.innerHTML=ICON.note}}
 function paintFolderArt(el,f){const c=S.covers[f]||(S.tracks.find(t=>t.folder===f&&t.cover)||{}).cover;if(c){el.style.background=`url("${c}") center/cover`;el.innerHTML=''}else{el.style.background=gradient(f);el.innerHTML=ICON.note}}
-function artPNG(t){const c=coverOf(t);if(c)return c;try{const cv=document.createElement('canvas');cv.width=cv.height=512;const x=cv.getContext('2d');const[p,q,r]=palette(t.name);
+const artMemo={};
+function artPNG(t){const c=coverOf(t);if(c)return c;const mk=SET.coverStyle==='tinta'?null:SET.coverStyle+'|'+darkNow();if(mk&&artMemo[mk])return artMemo[mk];try{const cv=document.createElement('canvas');cv.width=cv.height=512;const x=cv.getContext('2d');const[p,q,r]=palette(t.name);
   x.fillStyle=r;x.fillRect(0,0,512,512);let g=x.createRadialGradient(128,100,0,128,100,330);g.addColorStop(0,p);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,512,512);
   g=x.createRadialGradient(435,410,0,435,410,360);g.addColorStop(0,q);g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,512,512);
   x.translate(148,148);x.scale(216/24,216/24);x.fillStyle=SET.coverStyle==='classica'?(darkNow()?'#636268':'#b3b3b8'):'rgba(255,255,255,.6)';
-  x.fill(new Path2D('M19.2 3.1c.45-.1.8.2.8.65V15.4c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V7.6L10.4 9.05v8.6c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V5.85c0-.45.3-.8.75-.9z'));return cv.toDataURL('image/png')}catch(e){return''}}
+  x.fill(new Path2D('M19.2 3.1c.45-.1.8.2.8.65V15.4c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V7.6L10.4 9.05v8.6c0 1.55-1.45 2.75-3.15 2.75-1.45 0-2.45-.85-2.45-2 0-1.35 1.25-2.2 2.75-2.45l.85-.15c.3-.05.45-.25.45-.55V5.85c0-.45.3-.8.75-.9z'));const out=cv.toDataURL('image/png');if(mk)artMemo[mk]=out;return out}catch(e){return''}}
 function imgToData(file,size=600){return new Promise(res=>{const u=URL.createObjectURL(file),img=new Image();
   img.onload=()=>{try{const s=Math.min(img.naturalWidth,img.naturalHeight);const c=document.createElement('canvas');c.width=c.height=size;
     c.getContext('2d').drawImage(img,(img.naturalWidth-s)/2,(img.naturalHeight-s)/2,s,s,0,0,size,size);res(c.toDataURL('image/jpeg',.86))}catch(e){res(null)}URL.revokeObjectURL(u)};
@@ -624,17 +625,6 @@ function sampleReader(w){const{tag,bits}=w;
   if(bits===24)return(v,o)=>(v.getUint8(o)|(v.getUint8(o+1)<<8)|(v.getInt8(o+2)<<16))/8388608;
   if(bits===32)return(v,o)=>v.getInt32(o,true)/2147483648;
   if(bits===8)return(v,o)=>(v.getUint8(o)-128)/128;return null}
-function normPeaks(a){const m=Math.max(...a,1e-6);return a.map(v=>Math.round(Math.max(.05,Math.pow(Math.min(1,v/m),.8))*1000)/1000)}
-async function wavPeaks(blob,w,n=160){try{const rd=sampleReader(w);if(!rd)return null;const bps=w.bits/8;const frames=Math.floor(w.dataLen/w.block);if(frames<n)return null;
-  const win=Math.max(1,Math.min(6144,Math.floor(frames/n)));const step=Math.max(1,Math.floor(win/768));const out=[];
-  for(let i=0;i<n;i++){const f0=Math.floor(frames*i/n);const s=w.dataOff+f0*w.block;const buf=await blob.slice(s,s+win*w.block).arrayBuffer();const v=new DataView(buf);
-    const fr=Math.floor(buf.byteLength/w.block);let m=0;for(let k=0;k<fr;k+=step){const b=k*w.block;for(let c=0;c<w.ch;c++){const x=Math.abs(rd(v,b+c*bps));if(x>m)m=x}}out.push(m)}
-  return normPeaks(out)}catch(e){return null}}
-let actx=null;
-async function decodePeaks(blob,n=160){try{if(blob.size>120*1048576)return null;actx=actx||new (window.AudioContext||window.webkitAudioContext)();
-  const ab=await blob.arrayBuffer();const buf=await new Promise((res,rej)=>{const p=actx.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej)});
-  const d=buf.getChannelData(0),per=Math.floor(d.length/n);if(per<1)return null;const out=[];
-  for(let i=0;i<n;i++){let m=0;const s=i*per;for(let k=0;k<per;k+=8){const x=Math.abs(d[s+k]);if(x>m)m=x}out.push(m)}return normPeaks(out)}catch(e){return null}}
 function durationOf(blob,name){return new Promise(res=>{const a=new Audio(),u=URL.createObjectURL(typed(blob,name));let done=false;
   const fin=v=>{if(done)return;done=true;URL.revokeObjectURL(u);a.removeAttribute('src');res(isFinite(v)?v:0)};
   a.preload='metadata';a.onloadedmetadata=()=>fin(a.duration);a.onerror=()=>fin(0);setTimeout(()=>fin(0),15000);a.src=u})}
@@ -643,7 +633,7 @@ const typed=(blob,name)=>{const m=MIME[extOf(name)];return(!blob.type||blob.type
 async function analyze(t,blob){
   const ext=extOf(t.file);t.info={fmt:ext.toUpperCase()||'AUDIO'};
   if(['wav','wave'].includes(ext)||/wav/.test(blob.type)){const w=await parseWav(blob);
-    if(w){t.duration=w.duration;t.info={fmt:'WAV',bits:w.bits,rate:w.rate,ch:w.ch,float:w.tag===3,lossless:true};t.peaks=await wavPeaks(blob,w)}}
+    if(w){t.duration=w.duration;t.info={fmt:'WAV',bits:w.bits,rate:w.rate,ch:w.ch,float:w.tag===3,lossless:true}}}
   if(!t.duration)t.duration=await durationOf(blob,t.file);
   if(['aif','aiff','aifc','flac','alac'].includes(ext))t.info.lossless=true;
   if(!t.info.lossless&&t.duration)t.info.kbps=Math.round(blob.size*8/t.duration/1000);
@@ -673,13 +663,91 @@ function toWav(b){const ch=b.numberOfChannels,len=b.length*ch*2+44,v=new DataVie
 const own=()=>S.tracks.filter(t=>!t.demo);
 const lib=()=>own().length?own():S.tracks;
 
+/* ================= conversione automatica in AAC (.m4a) =================
+   I file non compressi (WAV, AIFF, FLAC, CAF) diventano AAC 256 kbps prima di essere salvati o caricati:
+   stesso formato dei bounce che arrivano dal Mac, circa un decimo dello spazio.
+   Se il dispositivo non sa convertire, o qualcosa va storto, il file resta com'è. */
+const CONV_EXT=['wav','wave','aif','aiff','aifc','flac','caf'];
+const convertible=f=>CONV_EXT.includes(extOf(f.name));
+const m4aName=n=>n.replace(/\.[^.]+$/,'')+'.m4a';
+const AAC_RATES=[96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350];
+let convOK=null;
+async function canConvert(){if(convOK!=null)return convOK;
+  try{convOK=typeof AudioEncoder==='function'&&typeof AudioData==='function'&&!!(await AudioEncoder.isConfigSupported({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:256000})).supported}catch(e){convOK=false}return convOK}
+async function srcRate(file,w){if(w)return w.rate;
+  try{const v=new DataView(await file.slice(0,65536).arrayBuffer()),id=str4(v,0);
+    if(id==='fLaC')return(v.getUint8(18)<<12)|(v.getUint8(19)<<4)|(v.getUint8(20)>>4);
+    if(id==='FORM'){let o=12;while(o+26<=v.byteLength){const sz=v.getUint32(o+4);if(str4(v,o)==='COMM')return Math.round(v.getUint32(o+18)*Math.pow(2,(v.getUint16(o+16)&0x7fff)-16383-31));o+=8+sz+(sz&1)}}}catch(e){}return 0}
+function muxM4A(frames,asc,rate,ch,bytes,bps){
+  const cat=a=>{let n=0;for(const x of a)n+=x.length;const o=new Uint8Array(n);let q=0;for(const x of a){o.set(x,q);q+=x.length}return o};
+  const u32=n=>[n>>>24&255,n>>>16&255,n>>>8&255,n&255],u16=n=>[n>>>8&255,n&255],s4=t=>[...t].map(c=>c.charCodeAt(0));
+  const box=(t,...parts)=>{const b=cat(parts.map(x=>x instanceof Uint8Array?x:new Uint8Array(x)));return cat([new Uint8Array([...u32(b.length+8),...s4(t)]),b])};
+  const desc=(tag,body)=>[tag,body.length,...body];
+  const N=frames.length,dur=N*1024,now=Math.floor(Date.now()/1000)+2082844800,Z=n=>new Array(n).fill(0);
+  const MAT=[0x10000,0,0,0,0x10000,0,0,0,0x40000000].flatMap(u32);
+  const esds=box('esds',[0,0,0,0,...desc(3,[0,0,0,...desc(4,[0x40,0x15,0,0,0,...u32(bps),...u32(bps),...desc(5,[...asc])]),...desc(6,[2])])]);
+  const stsd=box('stsd',[0,0,0,0,...u32(1)],box('mp4a',[...Z(6),0,1,...Z(8),...u16(ch),...u16(16),0,0,0,0,...u16(rate),0,0],esds));
+  const stts=box('stts',[0,0,0,0,...u32(1),...u32(N),...u32(1024)]);
+  const K=24,nc=Math.ceil(N/K),rem=N%K,two=rem>0&&nc>1;
+  const stsc=box('stsc',[0,0,0,0,...u32(two?2:1),...u32(1),...u32(nc===1&&rem?rem:K),...u32(1),...(two?[...u32(nc),...u32(rem),...u32(1)]:[])]);
+  const sz=new Uint8Array(12+4*N),sd=new DataView(sz.buffer);sd.setUint32(8,N);for(let i=0;i<N;i++)sd.setUint32(12+4*i,frames[i].length);
+  const stco=base=>{const a=new Uint8Array(8+4*nc),d=new DataView(a.buffer);d.setUint32(4,nc);let o=base;
+    for(let c=0;c<nc;c++){d.setUint32(8+4*c,o);for(let i=c*K,e=Math.min(N,i+K);i<e;i++)o+=frames[i].length}return box('stco',a)};
+  const moov=base=>box('moov',
+    box('mvhd',[0,0,0,0,...u32(now),...u32(now),...u32(rate),...u32(dur),...u32(0x10000),1,0,...Z(10),...MAT,...Z(24),...u32(2)]),
+    box('trak',
+      box('tkhd',[0,0,0,7,...u32(now),...u32(now),...u32(1),...Z(4),...u32(dur),...Z(12),1,0,0,0,...MAT,...Z(8)]),
+      box('mdia',
+        box('mdhd',[0,0,0,0,...u32(now),...u32(now),...u32(rate),...u32(dur),0x55,0xC4,0,0]),
+        box('hdlr',[...Z(8),...s4('soun'),...Z(12),...s4('SoundHandler'),0]),
+        box('minf',box('smhd',Z(8)),box('dinf',box('dref',[0,0,0,0,...u32(1)],box('url ',[0,0,0,1]))),
+          box('stbl',stsd,stts,stsc,box('stsz',sz),stco(base))))));
+  const ftyp=box('ftyp',[...s4('M4A '),0,0,0,0,...s4('M4A '),...s4('mp42'),...s4('isom')]);
+  const base=ftyp.length+moov(0).length+8;
+  return new Blob([ftyp,moov(base),new Uint8Array([...u32(bytes+8),...s4('mdat')]),...frames],{type:'audio/mp4'})}
+async function toAAC(file,onProg){
+  if(!convertible(file)||!(await canConvert()))return null;
+  let enc=null;
+  try{const w=/^wav/.test(extOf(file.name))?await parseWav(file):null,rd=w?sampleReader(w):null;
+    const rate=(await srcRate(file,w))===44100?44100:48000;let ch,total,pull;
+    if(w&&rd&&w.rate===rate&&w.ch<=2){/* WAV: letto a pezzi direttamente dal file, senza caricarlo tutto in memoria */
+      ch=w.ch;total=Math.floor(w.dataLen/w.block);const bps=w.bits/8;let pos=0;
+      pull=async n=>{if(pos>=total)return null;n=Math.min(n,total-pos);const v=new DataView(await file.slice(w.dataOff+pos*w.block,w.dataOff+(pos+n)*w.block).arrayBuffer());
+        n=Math.floor(v.byteLength/w.block);if(!n)return null;const out=new Float32Array(n*ch);
+        for(let c=0;c<ch;c++){const b=c*n,o=c*bps;for(let i=0;i<n;i++)out[b+i]=rd(v,i*w.block+o)}pos+=n;return out}}
+    else{/* gli altri formati (e i WAV a 88/96 kHz) passano dal decodificatore del dispositivo */
+      if(file.size>400*1048576)return null;const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;const oc=new OC(2,1,rate);
+      const ab=await file.arrayBuffer();const buf=await new Promise((res,rej)=>{const q=oc.decodeAudioData(ab,res,rej);if(q&&q.then)q.then(res,rej)});
+      ch=Math.min(2,buf.numberOfChannels);total=buf.length;const data=[];for(let c=0;c<ch;c++)data.push(buf.getChannelData(c));let pos=0;
+      pull=async n=>{if(pos>=total)return null;n=Math.min(n,total-pos);const out=new Float32Array(n*ch);for(let c=0;c<ch;c++)out.set(data[c].subarray(pos,pos+n),c*n);pos+=n;return out}}
+    if(!total||total<rate/10)return null;
+    const frames=[];let asc=null,err=null,bytes=0;const bps=ch===1?128000:256000;
+    enc=new AudioEncoder({output:(chunk,meta)=>{let u=new Uint8Array(chunk.byteLength);chunk.copyTo(u);
+        if(u.length>7&&u[0]===0xFF&&(u[1]&0xF6)===0xF0)u=u.subarray((u[1]&1)?7:9);
+        frames.push(u);bytes+=u.length;const d=meta&&meta.decoderConfig&&meta.decoderConfig.description;
+        if(d&&!asc)asc=d instanceof ArrayBuffer?new Uint8Array(d.slice(0)):new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength))},error:e=>{err=e}});
+    enc.configure({codec:'mp4a.40.2',sampleRate:rate,numberOfChannels:ch,bitrate:bps,aac:{format:'aac'}});
+    let done=0,last=0;
+    for(;;){const pcm=await pull(rate);if(!pcm||err)break;const n=pcm.length/ch;
+      const ad=new AudioData({format:'f32-planar',sampleRate:rate,numberOfFrames:n,numberOfChannels:ch,timestamp:Math.round(done/rate*1e6),data:pcm});enc.encode(ad);ad.close();done+=n;
+      while(enc.encodeQueueSize>6&&!err)await new Promise(r=>setTimeout(r,4));
+      const now=performance.now();if(now-last>100){last=now;if(onProg)onProg(done/total);await new Promise(r=>setTimeout(r,0))}}
+    if(!err)await enc.flush();try{enc.close()}catch(e){}enc=null;
+    if(err||frames.length<2)return null;
+    if(!asc||asc.length<2){const fi=AAC_RATES.indexOf(rate);asc=new Uint8Array([(2<<3)|(fi>>1),((fi&1)<<7)|(ch<<3)])}
+    const out=muxM4A(frames,asc,rate,ch,bytes,bps);
+    if(!out.size||out.size>=file.size)return null;
+    if(onProg)onProg(1);
+    return new File([out],m4aName(file.name),{type:'audio/mp4',lastModified:file.lastModified||Date.now()})}
+  catch(e){try{if(enc)enc.close()}catch(x){}return null}}
+
 /* ================= importazione (file, cartelle, trascinamento) ================= */
 let importing=false;
 async function importEntries(list){
   if(importing){toast('Aspetta che finisca l\'importazione in corso');return}
   const aud=list.filter(e=>isAudio(e.file)),imgs=list.filter(e=>isImg(e.file));
   if(!aud.length){toast(list.length?'Nella selezione non ci sono file audio':'Nessun file selezionato');return}
-  let added=0,dup=0,failed=0,unsaved=0;
+  let added=0,dup=0,failed=0,unsaved=0,conv=0;
   importing=true;const P=$('prog'),PT=$('progT'),PB=$('progBar');P.hidden=false;PT.textContent=`Leggo ${aud.length} ${aud.length===1?'file':'file'}…`;PB.style.width='0%';
   try{
   const byFolder={};imgs.forEach(e=>{const f=dirOf(e.path)||'Brani singoli';(byFolder[f]=byFolder[f]||[]).push(e.file)});
@@ -687,12 +755,13 @@ async function importEntries(list){
     const pick=files.find(x=>/^(cover|folder|artwork|front|copertina|album)\b/i.test(x.name))||files[0];const d=await imgToData(pick);
     if(d){S.covers[f]=d;await idb.put('meta',d,'cover:'+f)}}
   const keys=new Set(own().map(t=>t.key));
-  for(let i=0;i<aud.length;i++){const e=aud[i],f=e.file;PT.textContent=`Importo ${i+1} di ${aud.length}: ${f.name}`;PB.style.width=(i/aud.length*100)+'%';
+  for(let i=0;i<aud.length;i++){const e=aud[i];let f=e.file;PT.textContent=`Importo ${i+1} di ${aud.length}: ${f.name}`;PB.style.width=(i/aud.length*100)+'%';
     const folder=dirOf(e.path)||'Brani singoli',key=folder+'|'+f.name+'|'+f.size;
     if(keys.has(key)){dup++;continue}
+    if(convertible(f)&&await canConvert()){PT.textContent=`Converto ${i+1} di ${aud.length}: ${f.name}`;const c=await toAAC(f,q=>{PB.style.width=((i+q*.9)/aud.length*100)+'%'});if(c){f=c;conv++}}
     const t={id:uid(),key,name:clean(f.name),file:f.name,folder,size:f.size,added:Date.now()+i,plays:0,fav:false};
     try{await Promise.race([analyze(t,f),new Promise(r=>setTimeout(r,20000))])}catch(err){}
-    if(!t.duration&&!t.peaks){const ok=await canPlay(f,t.file);if(!ok){failed++;continue}}
+    if(!t.duration){const ok=await canPlay(f,t.file);if(!ok){failed++;continue}}
     let ok=await idb.put('blobs',f,t.id);
     if(!ok){try{ok=await idb.put('blobs',new Blob([await f.arrayBuffer()],{type:f.type||MIME[extOf(f.name)]||''}),t.id)}catch(err){ok=false}}
     if(ok)ok=await saveTrack(t);
@@ -704,7 +773,7 @@ async function importEntries(list){
   if(own().length&&S.curId&&S.byId.get(S.curId)?.demo){audio.pause();S.curId=null;$('mini').hidden=true}
   S.tracks=S.tracks.filter(t=>!t.demo||!own().length);S.byId=new Map(S.tracks.map(t=>[t.id,t]));
   render();
-  const parts=[];if(added)parts.push(added===1?'1 brano aggiunto':`${added} brani aggiunti`);if(dup)parts.push(`${dup} già presenti`);if(failed)parts.push(`${failed} non leggibili`);
+  const parts=[];if(added)parts.push(added===1?'1 brano aggiunto':`${added} brani aggiunti`);if(conv)parts.push(conv===1?'convertito in AAC':'convertiti in AAC');if(dup)parts.push(`${dup} già presenti`);if(failed)parts.push(`${failed} non leggibili`);
   toast(parts.join(' · ')||'Niente da aggiungere',3200);
   if(unsaved)setTimeout(()=>toast('Spazio pieno: alcuni brani suonano ora ma non resteranno salvati',4200),3300);
   askPersist()}
@@ -759,7 +828,6 @@ function render(){
   if(inFolder){const ts=lib().filter(t=>t.folder===S.folder);FH.hidden=false;
     FH.innerHTML=`<div class="art" id="fArt"></div><div class="info">${S.folder.includes('/')?`<div class="path">${esc(S.folder.split('/').slice(0,-1).join(' › '))}</div>`:''}</div>`;
     paintFolderArt($('fArt'),S.folder)}else FH.hidden=true;
-  const tot=v.reduce((s,t)=>s+(t.duration||0),0),size=v.reduce((s,t)=>s+(t.size||0),0);
   $('count').textContent=v.length?`${v.length} ${v.length===1?'brano':'brani'}`:'';
   $('playAll').disabled=$('shufAll').disabled=!v.length;
   L.innerHTML=v.length?v.map(rowHTML).join(''):`<li class="none">${S.query?'Nessun brano corrisponde alla ricerca.':S.tab==='favs'?'Nessun preferito: tocca il cuore su un brano per aggiungerlo qui.':'Nessun brano.'}</li>`;
@@ -772,7 +840,7 @@ function markPlaying(){const L=$('list');if(!L||!L.querySelector('.row')){render
     const a=r.querySelector('[data-art]');if(!a)return;const b=a.querySelector('.bars');if(on&&!b)a.insertAdjacentHTML('beforeend','<div class="bars"><i></i><i></i><i></i></div>');else if(!on&&b)b.remove()})}
 /* ================= riproduzione ================= */
 async function blobFor(t,opt){if(t.blob)return t.blob;
-  if(isCloud(t)){const b=await idb.get('blobs',t.id);if(b)return b;if(opt&&opt.fetch){try{return await cloudBlob(t)}catch(e){return null}}return null}if(t.demo){t.blob=await synth(t);const w=await parseWav(t.blob);if(w){t.peaks=await wavPeaks(t.blob,w);t.info={fmt:'WAV',bits:16,rate:w.rate,ch:w.ch,lossless:true}}return t.blob}
+  if(isCloud(t)){const b=await idb.get('blobs',t.id);if(b)return b;if(opt&&opt.fetch){try{return await cloudBlob(t)}catch(e){return null}}return null}if(t.demo){t.blob=await synth(t);const w=await parseWav(t.blob);if(w)t.info={fmt:'WAV',bits:16,rate:w.rate,ch:w.ch,lossless:true};return t.blob}
   return await idb.get('blobs',t.id)}
 const shareBlobs={};
 const tempLinks=(()=>{try{const o=JSON.parse(ls.get('sp-links')||'{}'),n=Date.now();for(const k in o)if(o[k].exp<n)delete o[k];return o}catch(e){return{}}})();
@@ -832,15 +900,11 @@ async function load(id,autoplay,at=0){if(jamHookLoad(id))return;seekHold=null;if
   const src=await srcFor(t);if(my!==loadToken)return;
   if(src==='__fail'||!src){audio.pause();audio.removeAttribute('src');audio.load();lastPos=0;syncPlay();if(!src)toast('Questo brano non è più salvato sul dispositivo: aggiungilo di nuovo');return}
   if(audio.src===src&&autoplay){audio.play().catch(()=>{});return}
-  if(!src){toast('Questo brano non è più salvato sul dispositivo: aggiungilo di nuovo');return}
   audio.src=src;audio.playbackRate=S.speed;setTimeout(preloadNext,400);if(S.curId===id)$('miniS').textContent=lastSeg(t.folder);if(at)audio.addEventListener('loadedmetadata',()=>{if(my===loadToken)try{audio.currentTime=at}catch(e){}},{once:true});
   if(autoplay){try{await audio.play()}catch(e){if(e&&e.name==='NotAllowedError'&&!jamIsGuest()&&my===loadToken)toast('Tocca ▶︎ per ascoltare',2200);if(e&&e.name!=='AbortError'&&e.name!=='NotAllowedError'){if(isCloud(t)&&!audio.src.startsWith('blob:'))cloudFallback(t);else playError(t)}}}
   if(isCloud(t)&&!audio.src.startsWith('blob:')){const id=t.id;setTimeout(()=>{if(S.curId===id&&!audio.src.startsWith('blob:')&&audio.readyState<2&&!audio.paused)cloudFallback(t)},9000)}
   setMedia(t);
-  if(!t.peaks&&!t.demo){const b=await blobFor(t);let p=null;
-    if(b){const w=/^wav/.test(extOf(t.file))?await parseWav(b):null;p=w?await wavPeaks(b,w):await decodePeaks(b)}
-    else if(t.src==='dbx'&&/^wav/.test(extOf(t.file))&&!t.duration){const rb=remoteBlob(t);const w=await parseWav(rb);if(w){t.duration=w.duration;saveTrack(t)}}
-    if(p&&S.byId.has(t.id)){t.peaks=p;saveTrack(t);if(S.curId===t.id)drawWave()}}}
+  if(!t.duration&&t.src==='dbx'&&/^wav/.test(extOf(t.file))){try{const w=await parseWav(remoteBlob(t));if(w&&S.byId.has(t.id)&&!t.duration){t.duration=w.duration;saveTrack(t)}}catch(e){}}}
 function playError(t){const i=t.info||{};toast(i.float&&i.bits===64?'Questo WAV è a 64-bit float: riesportalo da Logic a 24-bit':`Non riesco a riprodurre "${t.name}". Prova a riesportarlo da Logic in WAV 24-bit o AAC`,4500)}
 const fellBack=new Set();
 async function cloudFallback(t){if(fellBack.has(t.id))return false;fellBack.add(t.id);const id=t.id,at=audio.currentTime||0;
@@ -866,6 +930,7 @@ function prev(){const now=performance.now(),quick=now-lastPrev<1600;lastPrev=now
   if(S.ctx.length&&S.pos>0&&(quick||audio.currentTime<=3)){S.pos--;load(S.ctx[S.pos],true);return}
   holdSeek(0);audio.currentTime=0;progress()}
 let counted=null;
+['seeked','play','pause','ratechange','loadedmetadata'].forEach(ev=>audio.addEventListener(ev,()=>{pgPS=0}));
 audio.addEventListener('ended',()=>{if(jamSilentUrl&&audio.src===jamSilentUrl)return;if(S.sleepTrack){S.sleepTrack=false;updTimer();audio.currentTime=0;return}if(jamIsGuest()){jamEnded();return}if(S.repeat==='one'){audio.currentTime=0;audio.play().catch(()=>{});return}next(true)});
 audio.addEventListener('play',()=>{syncPlay();loop()});audio.addEventListener('pause',syncPlay);
 audio.addEventListener('timeupdate',()=>{const t=S.byId.get(S.curId);if(t&&counted!==t.id&&audio.currentTime>Math.min(30,(audio.duration||60)/2)){counted=t.id;t.plays=(t.plays||0)+1;saveTrack(t)}abCheck()});
@@ -889,13 +954,17 @@ function smoothTime(){const ct=audio.currentTime||0,now=performance.now(),d=audi
   const v=stA+(now-stW)/1000*r;return d?Math.min(d,v):v}
 function holdSeek(t){seekHold={t,until:performance.now()+2500};stA=t;stW=performance.now()}
 audio.addEventListener('seeked',()=>{stA=audio.currentTime||0;stW=performance.now();if(audio.paused)progress()});
-function progress(){const t=S.byId.get(S.curId);const d=(isFinite(audio.duration)&&audio.duration)||(t&&t.duration)||0;const c=scrub!=null?scrub*d:smoothTime();
-  $('cur').textContent=fmt(c);$('rem').textContent='-'+fmt(Math.max(0,d-c));$('miniProg').style.width=`calc((100% - 36px) * ${d?Math.min(1,c/d):0})`;
-  $('wave').setAttribute('aria-valuetext',`${fmt(c)} di ${fmt(d)}`);
-  if($('np').classList.contains('open'))drawWave(d?c/d:0);
-  try{if(d&&navigator.mediaSession.setPositionState&&scrub==null)navigator.mediaSession.setPositionState({duration:d,position:Math.min(audio.currentTime||0,d),playbackRate:audio.playbackRate||1})}catch(e){}}
+let pgC='',pgR='',pgPS=0;
+function progress(){const t=S.byId.get(S.curId);const d=(isFinite(audio.duration)&&audio.duration)||(t&&t.duration)||0;
+  const c=scrub!=null?scrub*d:(audio.src&&audio.src!==jamSilentUrl?smoothTime():lastPos||0),f=d?Math.min(1,Math.max(0,c/d)):0;
+  const sc=fmt(c),sr='-'+fmt(Math.max(0,d-c));
+  if(sc!==pgC){pgC=sc;$('cur').textContent=sc;$('wave').setAttribute('aria-valuetext',`${sc} di ${fmt(d)}`)}
+  if(sr!==pgR){pgR=sr;$('rem').textContent=sr}
+  $('miniProg').style.transform=`scaleX(${f.toFixed(5)})`;
+  if($('np').classList.contains('open'))drawWave(f);
+  const now=performance.now();if(d&&scrub==null&&now-pgPS>1000&&audio.src){pgPS=now;try{if(navigator.mediaSession.setPositionState)navigator.mediaSession.setPositionState({duration:d,position:Math.min(audio.currentTime||0,d),playbackRate:audio.playbackRate||1})}catch(e){}}}
 function drawWave(frac){const t=S.byId.get(S.curId);if(!t)return;const d=audio.duration||t.duration||0;
-  if(frac==null)frac=d?smoothTime()/d:0;$('pfill').style.width=(Math.min(1,Math.max(0,frac))*100)+'%';
+  if(frac==null)frac=d?(audio.src&&audio.src!==jamSilentUrl?smoothTime():lastPos||0)/d:0;frac=Math.min(1,Math.max(0,frac));$('pfill').style.transform=`scaleX(${frac.toFixed(5)})`;
   const ab=$('pab');if(S.A!=null&&d){const a=S.A/d,b=(S.B!=null?S.B/d:frac);ab.hidden=false;ab.style.left=a*100+'%';ab.style.width=Math.max(.5,(b-a)*100)+'%'}else ab.hidden=true}
 function updateNow(){const t=S.byId.get(S.curId);if(!t)return;
   paintArt($('miniArt'),t);paintArt($('bigArt'),t);const c=coverOf(t);$('npBg').style.background=c?`url("${c}") center/cover`:gradient(t.name);
@@ -1045,7 +1114,7 @@ $('timerBtn').onclick=()=>sheetOptions('Timer di spegnimento',[
 function updateAB(){if($('npTools'))$('npTools').classList.toggle('on',S.speed!==1||S.A!=null);const L=$('abL'),b=$('abBtn');if(S.A==null){L.textContent='Loop A-B';b.classList.remove('on')}else if(S.B==null){L.textContent='A '+fmt(S.A)+' · fissa B';b.classList.add('on')}else{L.textContent=`Loop ${fmt(S.A)}–${fmt(S.B)}`;b.classList.add('on')}drawWave()}
 $('abBtn').onclick=()=>{if(!S.curId)return;const c=audio.currentTime||0;
   if(S.A==null){S.A=c;toast('Punto A fissato. Tocca di nuovo per fissare B')}else if(S.B==null){if(c<=S.A+.5){toast('B deve essere dopo A');return}S.B=c;audio.currentTime=S.A;toast('Loop attivo. Tocca ancora per toglierlo')}else{S.A=S.B=null;toast('Loop tolto')}updateAB()};
-setInterval(()=>{if(S.sleepEnd&&Date.now()>=S.sleepEnd){S.sleepEnd=0;audio.pause();toast('Timer scaduto: riproduzione in pausa')}if(S.sleepEnd)updTimer();if(!audio.paused)savePos()},1000);
+setInterval(()=>{if(S.sleepEnd&&Date.now()>=S.sleepEnd){S.sleepEnd=0;audio.pause();toast('Timer scaduto: riproduzione in pausa')}if(S.sleepEnd)updTimer();if(!audio.paused&&++posTick%5===0)savePos()},1000);
 
 /* volume (su iPhone si usa quello del telefono) */
 const volOK=!(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&(()=>{try{const a=new Audio();a.volume=.5;return Math.abs(a.volume-.5)<.01}catch(e){return false}})();
@@ -1053,12 +1122,12 @@ if(volOK){$('volRow').hidden=false;const v=$('vol');const sv=+(ls.get('sp-vol')?
   v.oninput=()=>{audio.volume=v.value/100;v.style.setProperty('--p',v.value+'%');ls.set('sp-vol',v.value)}}
 
 /* ripresa da dove eri rimasto */
-let lastPos=0;
+let lastPos=0,posTick=0;
 function savePos(){if(!S.curId)return;const t=S.byId.get(S.curId);if(!t||t.demo)return;ls.set('sp-resume',JSON.stringify({id:S.curId,t:audio.currentTime||0,ctx:S.ctx.slice(0,2000),pos:S.pos,label:S.ctxLabel}))}
 
 /* ================= fogli dal basso ================= */
 let sheetClose=null;
-function openSheet(html,mount){const sh=$('sheet'),sc=$('scrim');$('sheetIn').innerHTML='<div class="grab"></div>'+html;sh.hidden=sc.hidden=false;
+function openSheet(html,mount){const sh=$('sheet'),sc=$('scrim');parkInputs();$('sheetIn').innerHTML='<div class="grab"></div>'+html;sh.hidden=sc.hidden=false;
   requestAnimationFrame(()=>{sh.classList.add('show');sc.classList.add('show')});if(mount)mount($('sheetIn'));
   const f=$('sheetIn').querySelector('input.field');if(f)setTimeout(()=>f.focus(),250)}
 function parkInputs(){['fileIn','dirIn','coverIn','upIn'].forEach(id=>{const i=$(id);if(i&&i.parentNode!==document.body){i.className='vh';document.body.appendChild(i)}})}
@@ -1176,11 +1245,10 @@ async function settingsSheet(){
 
 const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 function addSheet(){const dirOK=!IOS&&('webkitdirectory'in document.createElement('input'));
-  openSheet(`<h2 class="sh-title">Aggiungi brani</h2>${GD_KEY?`<div class="opts"><button class="opt" id="addGd">${ICON.cloud}<span class="lbl">${SET.gdRoot?'Aggiorna da Google Drive':'Cartella Google Drive'}</span><span class="hint">${SET.gdRoot?esc(SET.gdRoot.name):'automatico'}</span></button></div>`:''}${DBX_KEY?`<div class="opts"><button class="opt" id="addDbx">${ICON.cloud}<span class="lbl">${!dbxOn()?'Collega Dropbox':!SET.dbxFolders.length?'Scegli la cartella Dropbox':'Aggiorna da Dropbox'}</span><span class="hint">${!dbxOn()?'automatico':SET.dbxFolders.length===1?esc(SET.dbxFolders[0].name):SET.dbxFolders.length?SET.dbxFolders.length+' cartelle':''}</span></button></div>`:''}<div class="opts">
-    ${dirOK?`<label class="opt" for="dirIn" role="button">${ICON.folder}<span class="lbl">Scegli una cartella</span><span class="hint">importa tutto</span></label>`:''}
-    <label class="opt" for="fileIn" role="button">${ICON.file}<span class="lbl">Scegli i brani</span><span class="hint">solo su questo telefono</span></label></div>
-    ${dbxOn()&&SET.dbxFolders.length?`<div class="opts"><label class="opt" for="upIn" role="button">${ICON.cloud}<span class="lbl">Carica su Dropbox</span><span class="hint">li sentite tutti</span></label></div>`:''}
-    <p class="note">${IOS?'Nel selettore apri la cartella dei tuoi bounce, tocca <b>Seleziona</b> in alto e poi <b>Seleziona tutto</b>: entrano tutti insieme, WAV compresi.':'Con "Scegli una cartella" entrano tutti i brani, anche quelli nelle sottocartelle. Puoi anche trascinare la cartella dentro la pagina.'} I brani già presenti vengono saltati.</p>`,
+  openSheet(`<h2 class="sh-title">Aggiungi brani</h2>${GD_KEY?`<div class="opts"><button class="opt" id="addGd">${ICON.cloud}<span class="lbl">${SET.gdRoot?'Aggiorna da Google Drive':'Cartella Google Drive'}</span><span class="hint">${SET.gdRoot?esc(SET.gdRoot.name):'automatico'}</span></button></div>`:''}${DBX_KEY?`<div class="opts"><button class="opt" id="addDbx">${ICON.cloud}<span class="lbl">${!dbxOn()?'Collega Dropbox':!SET.dbxFolders.length?'Scegli la cartella Dropbox':'Aggiorna da Dropbox'}</span><span class="hint">${!dbxOn()?'automatico':SET.dbxFolders.length===1?esc(SET.dbxFolders[0].name):SET.dbxFolders.length?SET.dbxFolders.length+' cartelle':''}</span></button></div>`:''}${dbxShared()?`<div class="opts"><label class="opt" for="upIn" role="button">${ICON.file}<span class="lbl">Aggiungi brani</span><span class="hint">arrivano a tutti</span></label></div>`:''}<div class="opts">
+    ${dirOK?`<label class="opt" for="dirIn" role="button">${ICON.folder}<span class="lbl">Scegli una cartella</span><span class="hint">${dbxShared()?'solo qui':'importa tutto'}</span></label>`:''}
+    <label class="opt" for="fileIn" role="button">${ICON.file}<span class="lbl">${dbxShared()?'Aggiungi solo qui':'Scegli i brani'}</span><span class="hint">${IOS?'solo su questo telefono':'solo su questo dispositivo'}</span></label></div>
+    <p class="note">${dbxShared()?'"Aggiungi brani" li mette nella cartella Dropbox: compaiono da soli su tutti i tuoi dispositivi e a chi condivide la cartella. ':''}I WAV vengono convertiti in AAC da soli. ${IOS?'Nel selettore apri la cartella dei tuoi bounce, tocca <b>Seleziona</b> in alto e poi <b>Seleziona tutto</b>: entrano tutti insieme, WAV compresi.':'Con "Scegli una cartella" entrano tutti i brani, anche quelli nelle sottocartelle. Puoi anche trascinare la cartella dentro la pagina.'} I brani già presenti vengono saltati.</p>`,
   el=>{mountPickers(el);const gb=el.querySelector('#addGd');if(gb)gb.onclick=()=>{closeSheet();if(SET.gdRoot)gdSync(true);else setTimeout(gdConnectSheet,320)};const d=el.querySelector('#addDbx');if(d)d.onclick=()=>{closeSheet();if(!dbxOn())dbxConnect(false);else if(!SET.dbxFolders.length)setTimeout(()=>dbxFolderSheet(''),320);else dbxSync(true)}})}
 function folderMenu(f){const ts=lib().filter(t=>t.folder===f);sheetOptions(lastSeg(f),[
   {icon:ICON.playNext,label:'Riproduci',fn:()=>startContext(sorted(ts).map(t=>t.id),sorted(ts)[0].id,lastSeg(f))},
@@ -1302,6 +1370,7 @@ if(!Array.isArray(SET.dbxFolders)){SET.dbxFolders=SET.dbxRoot&&accts[0]?[{...SET
 const acctById=id=>accts.find(a=>a.id===id);
 const acctFor=t=>(t&&acctById(t.acct))||accts[0];
 const dbxOn=()=>accts.some(a=>a.refresh);
+const dbxShared=()=>dbxOn()&&SET.dbxFolders.some(f=>{const a=acctById(f.acct);return a&&a.refresh});
 const fkey=f=>f.acct+'|'+(f.id||f.path);
 const acctLabel=a=>a?(a.name||a.email||'Account Dropbox'):'Dropbox';
 const hdrArg=o=>JSON.stringify(o).replace(/[\u007f-￿]/g,c=>'\\u'+('000'+c.charCodeAt(0).toString(16)).slice(-4));
@@ -1731,14 +1800,14 @@ let dragN=0;
 document.addEventListener('dragenter',e=>{if([...(e.dataTransfer?.types||[])].includes('Files')){dragN++;$('drop').hidden=false}});
 document.addEventListener('dragleave',()=>{dragN=Math.max(0,dragN-1);if(!dragN)$('drop').hidden=true});
 document.addEventListener('dragover',e=>{if([...(e.dataTransfer?.types||[])].includes('Files'))e.preventDefault()});
-document.addEventListener('drop',async e=>{if(!e.dataTransfer||!e.dataTransfer.files.length)return;e.preventDefault();dragN=0;$('drop').hidden=true;importEntries(await entriesFromDrop(e.dataTransfer))});
+document.addEventListener('drop',async e=>{if(!e.dataTransfer||!e.dataTransfer.files.length)return;e.preventDefault();dragN=0;$('drop').hidden=true;const l=await entriesFromDrop(e.dataTransfer);if(dbxShared())dbxUploadPick(l);else importEntries(l)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();else{if(dbxOn()&&SET.dbxFolders.length&&Date.now()-(+ls.get('sp-dbx-last')||0)>15000)dbxSync(false);if(SET.gdRoot&&Date.now()-(+ls.get('sp-gd-last')||0)>60000)gdSync(false)}});
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014015119';
-let updChecking=false;
-async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;updChecking=true;
+const APP_VER='20261014022025';
+let updChecking=false,updAt=0;
+async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
     if(m&&m[1]!==APP_VER){if(!audio.paused&&!manual){updPending=true;toast('Aggiornamento pronto: si applica alla prossima pausa',3000);return}
       toast('Aggiorno il player…',2000);savePos();setTimeout(()=>location.replace(REDIR+'?u='+m[1]),600)}
@@ -1750,7 +1819,7 @@ audio.addEventListener('pause',()=>{if(!updPending||audio.ended)return;setTimeou
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate(false)});
 
 /* ================= caricare brani su Dropbox dal player ================= */
-function dbxUploadPick(files){const list=[...files].filter(f=>isAudio({name:f.name,type:f.type||''}));
+function dbxUploadPick(files){const list=[...files].map(x=>x&&x.file?x:{file:x,path:x.name}).filter(e=>isAudio({name:e.file.name,type:e.file.type||''}));
   if(!list.length){toast('Scegli dei file audio');return}
   const fs=SET.dbxFolders.filter(f=>{const a=acctById(f.acct);return a&&a.refresh});
   if(!fs.length){toast('Collega prima una cartella Dropbox');return}
@@ -1763,17 +1832,19 @@ function dbxScopeSheet(){openSheet(`<h2 class="sh-title">Serve un permesso in pi
   el=>{el.querySelector('#scRe').onclick=()=>{closeSheet();dbxConnect(false)}})}
 let uploading=false;
 async function dbxUpload(f,list){if(uploading){toast('Sto già caricando, aspetta un attimo');return}uploading=true;const ac=acctById(f.acct);
-  const P=$('prog'),PT=$('progT'),PB=$('progBar');P.hidden=false;let ok=0,big=0,stop=null;
-  try{for(let i=0;i<list.length;i++){const file=list[i];PT.textContent=`Carico su Dropbox ${i+1} di ${list.length}: ${file.name}`;PB.style.width=(5+90*i/list.length)+'%';
+  const P=$('prog'),PT=$('progT'),PB=$('progBar');P.hidden=false;let ok=0,big=0,stop=null,conv=0;
+  try{for(let i=0;i<list.length;i++){let file=list[i].file;const sub=dirOf(list[i].path);PB.style.width=(5+90*i/list.length)+'%';
+      if(convertible(file)&&await canConvert()){PT.textContent=`Converto ${i+1} di ${list.length}: ${file.name}`;const c=await toAAC(file,q=>{PB.style.width=(5+90*(i+q*.6)/list.length)+'%'});if(c){file=c;conv++}}
+      PT.textContent=`Carico su Dropbox ${i+1} di ${list.length}: ${file.name}`;
       if(file.size>150e6){big++;continue}
-      try{await dbxFetch(ac,'https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','Dropbox-API-Arg':hdrArg({path:(f.path||'')+'/'+file.name,mode:'add',autorename:true,mute:false})},body:file});ok++}
+      try{await dbxFetch(ac,'https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','Dropbox-API-Arg':hdrArg({path:(f.path||'')+'/'+(sub?sub+'/':'')+file.name,mode:'add',autorename:true,mute:false})},body:file});ok++}
       catch(e){const b=String(e.body||e.message||'');
         if(/missing_scope|files\.content\.write/.test(b)){stop='scope';break}
         if(/no_write_permission|insufficient_space|disallowed/.test(b)||e.status===403){stop=/insufficient_space/.test(b)?'space':'ro';break}
         if(e.message==='nolink'){stop='link';break}
         stop='net';break}}}
   finally{uploading=false;PB.style.width='100%';setTimeout(()=>{P.hidden=true},400)}
-  if(ok)toast(ok===1?'1 brano caricato: arriva anche a chi condivide la cartella':`${ok} brani caricati: arrivano anche a chi condivide la cartella`,3500);
+  if(ok)toast((ok===1?'1 brano caricato':`${ok} brani caricati`)+(conv&&conv===ok?' in AAC':'')+': arriva'+(ok===1?'':'no')+' anche a chi condivide la cartella',3500);
   if(stop==='scope')dbxScopeSheet();
   else if(stop==='ro')toast('Questa cartella è in sola lettura: chi l\'ha condivisa deve darti il permesso "Può modificare"',5000);
   else if(stop==='space')toast('Dropbox è pieno: libera spazio e riprova',4500);
@@ -1821,12 +1892,13 @@ function installBar(){if(!instEvt||$('instBar')||isApp())return;const d=document
 /* ================= avvio ================= */
 (async()=>{if(new URLSearchParams(location.search).has('u'))history.replaceState(null,'',REDIR);
   applySettings();syncModes();syncPlay();updTimer();setTimeout(()=>checkUpdate(false),1500);
-  const metas=await idb.all('tracks');
-  try{const keys=await idb.keys('meta');for(const k of keys)if(String(k).startsWith('cover:'))S.covers[String(k).slice(6)]=await idb.get('meta',k)}catch(e){}
+  const[metas,ck,cvs]=await Promise.all([idb.all('tracks'),idb.keys('meta'),idb.all('meta')]);
+  try{if(ck.length===cvs.length)ck.forEach((k,i)=>{if(String(k).startsWith('cover:'))S.covers[String(k).slice(6)]=cvs[i]});
+    else for(const k of ck)if(String(k).startsWith('cover:'))S.covers[String(k).slice(6)]=await idb.get('meta',k)}catch(e){}
   S.tracks=metas.length?metas:DEMOS.map(d=>({...d}));S.byId=new Map(S.tracks.map(t=>[t.id,t]));render();
   try{const r=JSON.parse(ls.get('sp-resume')||'null');if(r&&S.byId.has(r.id)){S.ctx=(r.ctx||[]).filter(id=>S.byId.has(id));if(!S.ctx.includes(r.id))S.ctx=[r.id];S.ctxBase=[...S.ctx];S.pos=S.ctx.indexOf(r.id);S.ctxLabel=r.label||'';
-    S.curId=r.id;lastPos=r.t||0;$('mini').hidden=false;updateNow();render();
-    const t=S.byId.get(r.id),d=t.duration||0;$('miniProg').style.width=`calc((100% - 36px) * ${d?Math.min(1,lastPos/d):0})`;$('cur').textContent=fmt(lastPos);$('rem').textContent='-'+fmt(d-lastPos)}}catch(e){}
+    S.curId=r.id;lastPos=r.t||0;$('mini').hidden=false;updateNow();markPlaying();
+    const t=S.byId.get(r.id),d=t.duration||0;progress()}}catch(e){}
   /* ora Dropbox vince sui doppioni: i brani Dropbox nascosti come doppioni di Drive tornano visibili (una volta sola) */
   if(SET.uiV!==3){SET.uiV=3;SET.coverStyle='classica';SET.tech=false;saveSet();applySettings();render()}
   if(SET.dedupeV!==2){SET.dedupeV=2;saveSet();const h=hiddenIds();if(h.some(x=>String(x).startsWith('dbx:')))ls.set('sp-hidden',JSON.stringify(h.filter(x=>!String(x).startsWith('dbx:'))))}
