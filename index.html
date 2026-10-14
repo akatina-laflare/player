@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data: https://*.dropboxusercontent.com https://www.googleapis.com https://*.googleusercontent.com; connect-src 'self' https://api.dropboxapi.com https://content.dropboxapi.com https://*.dropboxusercontent.com https://www.googleapis.com https://*.googleusercontent.com https://ntfy.sh; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1910,9 +1911,11 @@ function jamBoot(){const m=location.hash.match(/jam=([A-Za-z0-9]{6})/);
   try{const r=JSON.parse(ls.get('sp-jam')||'null');if(r&&r.code&&Date.now()-r.at<6*3600e3){jamBegin(r.code,r.role,r).then(()=>{if(r.role==='guest'&&audio.paused)jamNeedTap()})}}catch(e){}}
 
 /* --- QR: mostra e scansiona --- */
-const loadJs=(()=>{const m={};return u=>m[u]||(m[u]=new Promise((ok,ko)=>{const s=document.createElement('script');s.src=u;s.async=true;s.onload=ok;s.onerror=()=>{delete m[u];s.remove();ko(new Error('net'))};document.head.appendChild(s)}))})();
-const QR_LIB='https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',JSQR_LIB='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
-async function jamQR(box,text){try{await loadJs(QR_LIB);if(!box.isConnected)return;const q=qrcode(0,'M');q.addData(text);q.make();box.innerHTML=q.createSvgTag({cellSize:4,margin:0,scalable:true})}catch(e){box.remove()}}
+const loadJs=(()=>{const m={};return(u,sri)=>m[u]||(m[u]=new Promise((ok,ko)=>{const s=document.createElement('script');if(sri){s.integrity=sri;s.crossOrigin='anonymous'}s.src=u;s.async=true;s.onload=ok;s.onerror=()=>{delete m[u];s.remove();ko(new Error('net'))};document.head.appendChild(s)}))})();
+/* librerie esterne con la loro impronta: la copia sul server deve essere identica a quella ufficiale */
+const QR_LIB='https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',QR_SRI='sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1';
+const JSQR_LIB='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',JSQR_SRI='sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx';
+async function jamQR(box,text){try{await loadJs(QR_LIB,QR_SRI);if(!box.isConnected)return;const q=qrcode(0,'M');q.addData(text);q.make();box.innerHTML=q.createSvgTag({cellSize:4,margin:0,scalable:true})}catch(e){box.remove()}}
 async function jamScan(){
   openSheet(`<h2 class="sh-title">Scansiona il QR</h2><div class="scanbox"><video id="scV" playsinline muted autoplay></video><div class="scanframe"></div></div>
     <p class="note" style="text-align:center">Inquadra il QR nella Jam del tuo amico</p>`);
@@ -1924,7 +1927,7 @@ async function jamScan(){
   if(!on){stop();return}
   v.srcObject=st;try{await v.play()}catch(e){}
   let det=null;try{if('BarcodeDetector'in window&&(await BarcodeDetector.getSupportedFormats()).includes('qr_code'))det=new BarcodeDetector({formats:['qr_code']})}catch(e){}
-  if(!det){try{await loadJs(JSQR_LIB)}catch(e){fail('Serve internet per lo scanner: scrivi il codice');return}}
+  if(!det){try{await loadJs(JSQR_LIB,JSQR_SRI)}catch(e){fail('Serve internet per lo scanner: scrivi il codice');return}}
   const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
   const tick=async()=>{if(!on)return;raf=requestAnimationFrame(tick);if(busy||v.readyState<2||!v.videoWidth)return;busy=true;
     try{let txt=null;
@@ -2053,7 +2056,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014133042';
+const APP_VER='20261014182621';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
