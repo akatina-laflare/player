@@ -760,7 +760,7 @@ async function importEntries(list){
     const folder=dirOf(e.path)||'Brani singoli',key=folder+'|'+f.name+'|'+f.size;
     if(keys.has(key)){dup++;continue}
     if(convertible(f)&&await canConvert()){PT.textContent=`Converto ${i+1} di ${aud.length}: ${f.name}`;const c=await toAAC(f,q=>{PB.style.width=((i+q*.9)/aud.length*100)+'%'});if(c){f=c;conv++}}
-    const t={id:uid(),key,name:clean(f.name),file:f.name,folder,size:f.size,added:Date.now()+i,plays:0,fav:false};
+    const t={id:uid(),key,name:clean(f.name),file:f.name,folder,size:f.size,added:(e.file.lastModified>0&&e.file.lastModified<Date.now()?e.file.lastModified:Date.now())+i,plays:0,fav:false};
     try{await Promise.race([analyze(t,f),new Promise(r=>setTimeout(r,20000))])}catch(err){}
     if(!t.duration){const ok=await canPlay(f,t.file);if(!ok){failed++;continue}}
     let ok=await idb.put('blobs',f,t.id);
@@ -1502,6 +1502,7 @@ async function dbxFolderSheet(path,ac){ac=ac||accts.find(a=>a.refresh);if(!ac){d
       SET.dbxFolders=SET.dbxFolders.filter(x=>!sub.includes(x));SET.dbxFolders.push(f);saveSet();closeSheet();toast('Cartella aggiunta: '+f.name);dbxSync(true)}})}
 
 let dbxSyncing=false;
+const dbxDate=e=>{const c=Date.parse(e.client_modified)||0,sv=Date.parse(e.server_modified)||0;return c&&sv?Math.min(c,sv):c||sv||0};
 function dbxFolderOf(f,e){const rootSeg=(f.display||f.path).split('/').length;const segs=e.path_display.split('/');const mid=segs.slice(rootSeg,-1);return mid.length?mid.join('/'):f.name}
 async function dbxList(ac,f){let res=await dbxApi(ac,'files/list_folder',{path:f.id||f.path,recursive:true,limit:2000});let ents=res.entries;
   while(res.has_more){res=await dbxApi(ac,'files/list_folder/continue',{cursor:res.cursor});ents=ents.concat(res.entries)}dbxCur[fkey(f)]=res.cursor;return ents}
@@ -1522,10 +1523,11 @@ async function dbxSync(manual){if(dbxSyncing)return;
       const files=ents.filter(e=>e['.tag']==='file'&&e.is_downloadable!==false);
       const aud=files.filter(e=>isAudio({name:e.name,type:''})),imgs=files.filter(e=>isImg({name:e.name,type:''}));nAud+=aud.length;
       for(const e of aud){const id='dbx:'+e.id;if(hid.has(id)||seen.has(id))continue;seen.add(id);const folder=dbxFolderOf(f,e);let t=S.byId.get(id);
-        if(!t){t={id,src:'dbx',acct:ac.id,root:k,dbxId:e.id,hash:e.content_hash,path:e.path_display,name:clean(e.name),file:e.name,folder,size:e.size,added:Date.parse(e.server_modified)||Date.now(),plays:0,fav:false,info:{fmt:extOf(e.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(e.name))}};
+        if(!t){t={id,src:'dbx',acct:ac.id,root:k,dbxId:e.id,hash:e.content_hash,path:e.path_display,name:clean(e.name),file:e.name,folder,size:e.size,added:dbxDate(e)||Date.now(),plays:0,fav:false,info:{fmt:extOf(e.name).toUpperCase(),lossless:/^(wav|wave|aif|aiff|aifc|flac)$/.test(extOf(e.name))}};
           S.tracks.push(t);S.byId.set(id,t);added++;fresh.push(t);await saveTrack(t)}
         else{let ch=false;if(t.hash!==e.content_hash){t.hash=e.content_hash;t.size=e.size;t.file=e.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(e.name).toUpperCase()};delete tempLinks[id];
             await cacheDel(id);if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
+          {const ad=dbxDate(e);if(ad&&t.added!==ad){t.added=ad;ch=true}}
           if(t.path!==e.path_display||t.folder!==folder||t.acct!==ac.id||t.root!==k){if(t.acct!==ac.id)delete tempLinks[id];t.path=e.path_display;t.folder=folder;t.acct=ac.id;t.root=k;ch=true}
           if(ch)await saveTrack(t)}}
       const byF={};imgs.forEach(e=>{const fo=dbxFolderOf(f,e);(byF[fo]=byF[fo]||[]).push(e)});
@@ -1821,7 +1823,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014023233';
+const APP_VER='20261014025749';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -1853,7 +1855,7 @@ async function dbxUpload(f,list){if(uploading){toast('Sto già caricando, aspett
       if(convertible(file)&&await canConvert()){PT.textContent=`Converto ${i+1} di ${list.length}: ${file.name}`;const c=await toAAC(file,q=>{PB.style.width=(5+90*(i+q*.6)/list.length)+'%'});if(c){file=c;conv++}}
       PT.textContent=`Carico su Dropbox ${i+1} di ${list.length}: ${file.name}`;
       if(file.size>150e6){big++;continue}
-      try{await dbxFetch(ac,'https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','Dropbox-API-Arg':hdrArg({path:(f.path||'')+'/'+(sub?sub+'/':'')+file.name,mode:'add',autorename:true,mute:false})},body:file});ok++}
+      try{await dbxFetch(ac,'https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','Dropbox-API-Arg':hdrArg({path:(f.path||'')+'/'+(sub?sub+'/':'')+file.name,mode:'add',autorename:true,mute:false,...(file.lastModified>0&&file.lastModified<Date.now()?{client_modified:new Date(file.lastModified).toISOString().replace(/\.\d+Z$/,'Z')}:{})})},body:file});ok++}
       catch(e){const b=String(e.body||e.message||'');
         if(/missing_scope|files\.content\.write/.test(b)){stop='scope';break}
         if(/no_write_permission|insufficient_space|disallowed/.test(b)||e.status===403){stop=/insufficient_space/.test(b)?'space':'ro';break}
