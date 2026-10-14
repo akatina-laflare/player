@@ -683,6 +683,10 @@ async function srcRate(file,w){if(w)return w.rate;
   try{const v=new DataView(await file.slice(0,65536).arrayBuffer()),id=str4(v,0);
     if(id==='fLaC')return(v.getUint8(18)<<12)|(v.getUint8(19)<<4)|(v.getUint8(20)>>4);
     if(id==='FORM'){let o=12;while(o+26<=v.byteLength){const sz=v.getUint32(o+4);if(str4(v,o)==='COMM')return Math.round(v.getUint32(o+18)*Math.pow(2,(v.getUint16(o+16)&0x7fff)-16383-31));o+=8+sz+(sz&1)}}}catch(e){}return 0}
+function ascFrom(d){try{if(!d||d.length<2)return null;if(d[0]!==3&&d[0]!==4&&d[0]!==5)return(d[0]>>3)>=1&&(d[0]>>3)<=5?d:null;
+    const walk=(o,e)=>{while(o+2<=e){const tag=d[o++];let len=0,k=0;do{len=(len<<7)|(d[o]&127)}while(d[o++]&128&&++k<4);const end=Math.min(e,o+len);
+      if(tag===5)return d.slice(o,end);if(tag===3){const r=walk(o+3,end);if(r)return r}else if(tag===4){const r=walk(o+13,end);if(r)return r}o=end}return null};
+    const a=walk(0,d.length);return a&&a.length>=2?a:null}catch(e){return null}}
 function muxM4A(frames,asc,rate,ch,bytes,bps){
   const cat=a=>{let n=0;for(const x of a)n+=x.length;const o=new Uint8Array(n);let q=0;for(const x of a){o.set(x,q);q+=x.length}return o};
   const u32=n=>[n>>>24&255,n>>>16&255,n>>>8&255,n&255],u16=n=>[n>>>8&255,n&255],s4=t=>[...t].map(c=>c.charCodeAt(0));
@@ -710,6 +714,10 @@ function muxM4A(frames,asc,rate,ch,bytes,bps){
   const ftyp=box('ftyp',[...s4('M4A '),0,0,0,0,...s4('M4A '),...s4('mp42'),...s4('isom')]);
   const base=ftyp.length+moov(0).length+8;
   return new Blob([ftyp,moov(base),new Uint8Array([...u32(bytes+8),...s4('mdat')]),...frames],{type:'audio/mp4'})}
+/* prova di lettura del file convertito con il decodificatore del dispositivo (lo stesso che lo riprodurrà) */
+async function m4aPlayable(blob){try{const OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;if(!OC||blob.size>60*1048576)return true;
+    const oc=new OC(2,1,44100),ab=await blob.arrayBuffer();const buf=await new Promise((res,rej)=>{const q=oc.decodeAudioData(ab,res,rej);if(q&&q.then)q.then(res,rej)});return!!buf&&buf.length>0}
+  catch(e){return false}}
 async function toAAC(file,onProg){
   if(!convertible(file)||!(await canConvert()))return null;
   let enc=null;
@@ -739,9 +747,10 @@ async function toAAC(file,onProg){
       const now=performance.now();if(now-last>100){last=now;if(onProg)onProg(done/total);await new Promise(r=>setTimeout(r,0))}}
     if(!err)await enc.flush();try{enc.close()}catch(e){}enc=null;
     if(err||frames.length<2)return null;
-    if(!asc||asc.length<2){const fi=AAC_RATES.indexOf(rate);asc=new Uint8Array([(2<<3)|(fi>>1),((fi&1)<<7)|(ch<<3)])}
+    asc=ascFrom(asc);if(!asc){const fi=AAC_RATES.indexOf(rate);asc=new Uint8Array([(2<<3)|(fi>>1),((fi&1)<<7)|(ch<<3)])}
     const out=muxM4A(frames,asc,rate,ch,bytes,bps);
     if(!out.size||out.size>=file.size)return null;
+    if(!(await m4aPlayable(out)))return null;
     if(onProg)onProg(1);
     return new File([out],m4aName(file.name),{type:'audio/mp4',lastModified:file.lastModified||Date.now()})}
   catch(e){try{if(enc)enc.close()}catch(x){}return null}}
@@ -2023,7 +2032,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261014033529';
+const APP_VER='20261014035252';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
