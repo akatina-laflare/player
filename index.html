@@ -508,7 +508,9 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 
 <script>
 // App iPhone: l'accesso a Dropbox avviene in Safari, da qui si torna nell'app col codice.
-if(new URLSearchParams(location.search).get('state')==='studioapp')location.replace('studioplayer://dropbox'+location.search);
+if(new URLSearchParams(location.search).get('state')==='studioapp'){const back='studioplayer://dropbox'+location.search;
+  const a=document.createElement('a');a.href=back;a.textContent='Torna a Studio Player';a.style.cssText='display:block;margin:45vh 24px 0;padding:16px;border-radius:14px;background:#e5395a;color:#fff;font:600 18px -apple-system,sans-serif;text-align:center;text-decoration:none';
+  document.documentElement.innerHTML='<body style="margin:0;background:#0d0e12"></body>';document.body.append(a);location.replace(back);throw new Error('torno all\'app')}
 'use strict';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
@@ -2058,7 +2060,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261030214528';
+const APP_VER='20261030214919';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
