@@ -300,6 +300,10 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 .toggle[aria-checked="true"]{background:var(--accent)}
 .toggle[aria-checked="true"]::after{transform:translateX(20px)}
 .q-now{color:var(--accent)}
+.opt .q-act{flex:none;width:36px;height:44px;display:grid;place-items:center;color:var(--muted);background:none;border:0;padding:0}
+.opt .q-grip{touch-action:none;cursor:grab}
+.opts.q-sorting .opt{transition:transform .16s ease}
+.opts.q-sorting .opt.lift{transition:none;position:relative;z-index:2;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .x{width:32px;height:32px;display:grid;place-items:center;border-radius:50%;color:var(--muted);flex:none}
 
 .prog{position:fixed;left:16px;right:16px;bottom:calc(86px + env(safe-area-inset-bottom,0px));max-width:520px;margin:0 auto;background:var(--raised);color:var(--fg);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.2);z-index:25;display:flex;flex-direction:column;gap:8px}
@@ -517,6 +521,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 const ICON={
+  top:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14M12 20V9M7 13l5-5 5 5"/></svg>',
   play:z=>`<svg width="${z}" height="${z}" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg>`,
   pause:z=>`<svg width="${z}" height="${z}" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg>`,
   heart:(z,f)=>`<svg width="${z}" height="${z}" viewBox="0 0 24 24" fill="${f?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>`,
@@ -922,14 +927,21 @@ async function srcFor(t){if(isCloud(t)&&!urls[t.id]&&!t.offline){const c=await c
 function shuffled(ids,first){const a=ids.filter(i=>i!==first);for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}if(first)a.unshift(first);return a}
 function startContext(ids,startId,label){if(!audio.src)jamUnlock();S.ctxBase=[...ids];S.ctx=S.shuffle?shuffled(ids,startId):[...ids];S.pos=Math.max(0,S.ctx.indexOf(startId));S.ctxLabel=label||'';load(S.ctx[S.pos],true)}
 let loadToken=0;
+/* App iPhone: quando il silenzio lascia il posto al brano iOS sospenderebbe la pagina se l'app è in background.
+   Un secondo silenzio resta acceso finché il brano non suona davvero. Nel sito non serve. */
+const inApp=/iPhone/.test(navigator.userAgent)&&!/Safari/.test(navigator.userAgent);const keepAudio=new Audio();keepAudio.loop=true;let keepT=0;
+function keepOff(){clearTimeout(keepT);if(!keepAudio.paused)keepAudio.pause()}
+function keepOn(){if(!inApp)return;try{silentUrl();if(keepAudio.src!==jamSilentUrl)keepAudio.src=jamSilentUrl;const q=keepAudio.play();if(q&&q.catch)q.catch(()=>{});clearTimeout(keepT);keepT=setTimeout(keepOff,30000)}catch(e){}}
+audio.addEventListener('playing',()=>{if(audio.src!==jamSilentUrl)keepOff()});audio.addEventListener('error',keepOff);
 async function load(id,autoplay,at=0){if(jamHookLoad(id))return;seekHold=null;if(!at)lastPos=0;const t=S.byId.get(id);if(!t)return;const my=++loadToken;const changed=S.curId!==id;S.curId=id;S.A=S.B=null;updateAB();
   const mini=$('mini');if(mini.hidden){mini.hidden=false;mini.classList.remove('enter');void mini.offsetWidth;mini.classList.add('enter')}
   updateNow();markPlaying();if(changed){const b=$('bigArt');b.classList.remove('swap');void b.offsetWidth;b.classList.add('swap')}
   /* su iPhone l'app in background resta sveglia solo se suona: mentre preparo il brano faccio partire subito un silenzio,
      così si può bloccare lo schermo appena toccato il brano */
   if(autoplay&&audio.paused&&!jamIsGuest()){try{silentUrl();audio.loop=true;audio.src=jamSilentUrl;const q=audio.play();if(q&&q.catch)q.catch(()=>{})}catch(e){}}
+  if(autoplay&&!jamIsGuest())keepOn();
   const src=await srcFor(t);if(my!==loadToken)return;
-  if(src==='__fail'||!src){audio.loop=false;audio.pause();audio.removeAttribute('src');audio.load();lastPos=0;syncPlay();if(!src)toast('Questo brano non è più salvato sul dispositivo: aggiungilo di nuovo');return}
+  if(src==='__fail'||!src){keepOff();audio.loop=false;audio.pause();audio.removeAttribute('src');audio.load();lastPos=0;syncPlay();if(!src)toast('Questo brano non è più salvato sul dispositivo: aggiungilo di nuovo');return}
   if(audio.src===src&&autoplay){audio.play().catch(()=>{});return}
   audio.loop=false;audio.src=src;audio.playbackRate=S.speed;setTimeout(preloadNext,400);if(S.curId===id)$('miniS').textContent=lastSeg(t.folder);if(at)audio.addEventListener('loadedmetadata',()=>{if(my===loadToken)try{audio.currentTime=at}catch(e){}},{once:true});
   if(autoplay){try{await audio.play()}catch(e){if(e&&e.name==='NotAllowedError'&&!jamIsGuest()&&my===loadToken)toast('Tocca ▶︎ per ascoltare',2200);if(e&&e.name!=='AbortError'&&e.name!=='NotAllowedError'){if(isCloud(t)&&!audio.src.startsWith('blob:'))cloudFallback(t);else playError(t)}}}
@@ -1237,14 +1249,31 @@ function shareTrack(t){const b=shareBlobs[t.id];
   if(navigator.share){done(navigator.share({title:t.name,text:`Sto ascoltando "${t.name}"`}));return}
   toast('Su questo dispositivo la condivisione non è disponibile')}
 
+function queueChanged(){const sh=$('sheet'),y=sh.scrollTop;upSig='';renderUpNext();setTimeout(preloadNext,400);queueSheet();sh.scrollTop=y}
+function queueDrag(el){const sh=$('sheet');let d=null;
+  const paint=()=>{const dy=d.yNow-d.y+sh.scrollTop-d.top;d.r.style.transform=`translateY(${dy}px)`;
+    const to=Math.max(0,Math.min(d.rows.length-1,d.i+Math.round(dy/d.h)));if(to===d.to)return;d.to=to;
+    d.rows.forEach((x,k)=>{if(x===d.r)return;x.style.transform=k>d.i&&k<=to?`translateY(${-d.h}px)`:k<d.i&&k>=to?`translateY(${d.h}px)`:''})};
+  const edge=()=>{if(!d)return;const b=sh.getBoundingClientRect(),v=d.yNow<b.top+70?-7:d.yNow>b.bottom-70?7:0;if(v){sh.scrollTop+=v;paint()}d.raf=requestAnimationFrame(edge)};
+  el.querySelectorAll('[data-qgrip]').forEach(g=>{g.onclick=e=>e.stopPropagation();
+    g.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const r=g.closest('.opt'),rows=[...r.parentNode.querySelectorAll('.opt[data-kind]')];
+      d={r,rows,kind:r.dataset.kind,i:rows.indexOf(r),to:rows.indexOf(r),y:e.clientY,yNow:e.clientY,top:sh.scrollTop,h:r.offsetHeight||60};
+      try{g.setPointerCapture(e.pointerId)}catch(x){}r.parentNode.classList.add('q-sorting');r.classList.add('lift');try{navigator.vibrate&&navigator.vibrate(8)}catch(x){}d.raf=requestAnimationFrame(edge)});
+    g.addEventListener('pointermove',e=>{if(!d)return;d.yNow=e.clientY;paint()});
+    const end=()=>{if(!d)return;const s=d;d=null;cancelAnimationFrame(s.raf);s.r.parentNode.classList.remove('q-sorting');s.rows.forEach(x=>{x.style.transform='';x.classList.remove('lift')});if(s.to===s.i)return;
+      const L=s.kind==='up'?S.up:S.ctx,b=s.kind==='up'?0:S.pos+1;L.splice(b+s.to,0,L.splice(b+s.i,1)[0]);queueChanged()};
+    g.addEventListener('pointerup',end);g.addEventListener('pointercancel',end)})}
 function queueSheet(){const cur=S.byId.get(S.curId);const up=S.up.map(id=>S.byId.get(id)).filter(Boolean);const rest=S.ctx.slice(S.pos+1,S.pos+61).map(id=>S.byId.get(id)).filter(Boolean);
-  const item=(t,kind,i)=>`<div class="opt" data-kind="${kind}" data-i="${i}" role="button" tabindex="0"><div class="art" data-a="${t.id}" style="width:40px;height:40px;border-radius:6px;flex:none"></div><span class="lbl"><span class="t" style="display:block;font-size:15px">${esc(t.name)}</span><span class="s">${esc(lastSeg(t.folder))} · ${fmt(t.duration)}</span></span>${kind==='up'?`<button class="x" data-rm="${i}" aria-label="Togli dalla coda">${ICON.x}</button>`:''}</div>`;
+  const item=(t,kind,i)=>`<div class="opt" data-kind="${kind}" data-i="${i}" role="button" tabindex="0"><div class="art" data-a="${t.id}" style="width:40px;height:40px;border-radius:6px;flex:none"></div><span class="lbl"><span class="t" style="display:block;font-size:15px">${esc(t.name)}</span><span class="s">${esc(lastSeg(t.folder))} · ${fmt(t.duration)}</span></span>${kind==='up'?`<button class="x" data-rm="${i}" aria-label="Togli dalla coda">${ICON.x}</button>`:''}${kind==='cur'||jamIsGuest()?'':`${kind==='up'&&!i?'':`<button class="q-act" data-top="${i}" aria-label="Metti in cima alla coda">${ICON.top}</button>`}<span class="q-act q-grip" data-qgrip aria-label="Sposta"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 9h14M5 15h14"/></svg></span>`}</div>`;
   openSheet(`<h2 class="sh-title">Coda</h2>${cur?`<div class="sec">In riproduzione</div><div class="opts">${item(cur,'cur',0).replace('class="opt"','class="opt q-now"')}</div>`:''}
     ${up.length?`<div style="display:flex;justify-content:space-between;align-items:flex-end"><div class="sec">In coda (${up.length})</div><button class="acc" id="clrUp" style="font-size:14px">Svuota</button></div><div class="opts">${up.map((t,i)=>item(t,'up',i)).join('')}</div>`:''}
     <div class="sec">Successivi${S.shuffle?' · casuale':''}${S.repeat==='all'?' · ripeti tutto':''}</div>${rest.length?`<div class="opts">${rest.map((t,i)=>item(t,'ctx',i)).join('')}</div>`:`<p class="note">Dopo questo brano la riproduzione si ferma${S.repeat==='off'?'. Attiva "Ripeti" per ricominciare da capo':''}.</p>`}`,
   el=>{el.querySelectorAll('[data-a]').forEach(a=>paintArt(a,S.byId.get(a.dataset.a)));
     el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=e=>{e.stopPropagation();S.up.splice(+b.dataset.rm,1);queueSheet()});
     const c=el.querySelector('#clrUp');if(c)c.onclick=()=>{S.up=[];queueSheet()};
+    el.querySelectorAll('[data-top]').forEach(b=>b.onclick=e=>{e.stopPropagation();const o=b.closest('.opt'),i=+o.dataset.i;
+      if(o.dataset.kind==='up')S.up.unshift(S.up.splice(i,1)[0]);else S.up.unshift(S.ctx.splice(S.pos+1+i,1)[0]);queueChanged()});
+    queueDrag(el);
     el.querySelectorAll('.opt[data-kind]').forEach(o=>o.onclick=()=>{const k=o.dataset.kind,i=+o.dataset.i;if(k==='cur'){closeSheet();return}
       if(k==='up'){const id=S.up.splice(i,1)[0];closeSheet();load(id,true)}else{S.pos=S.pos+1+i;closeSheet();load(S.ctx[S.pos],true)}})})}
 
@@ -2061,7 +2090,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261030220119';
+const APP_VER='20261030221109';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
