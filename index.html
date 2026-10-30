@@ -907,7 +907,7 @@ let prefetching=null,prefetchRun=0;const inflight={};
 function cloudBlobOnce(t){if(!inflight[t.id])inflight[t.id]=cloudBlob(t).finally(()=>{setTimeout(()=>{delete inflight[t.id]},0)});return inflight[t.id]}
 function trimUrls(){const keep=new Set([S.curId,...upcoming(2)]);const ks=Object.keys(urls).filter(k=>!keep.has(k));
   while(ks.length>1){const k=ks.shift();URL.revokeObjectURL(urls[k]);delete urls[k];delete shareBlobs[k]}}
-async function preloadNext(){const run=++prefetchRun;
+async function preloadNext(){if(native&&!jam)return;const run=++prefetchRun;
   for(const id of upcoming(2)){if(run!==prefetchRun)return;const t=S.byId.get(id);if(!t||!isCloud(t)||t.offline||urls[id]||cacheIdx[id])continue;
     prefetching=id;
     try{const b=await cloudBlobOnce(t);if(!S.byId.has(id))continue;
@@ -930,14 +930,29 @@ let loadToken=0;
 /* App iPhone: quando il silenzio lascia il posto al brano iOS sospenderebbe la pagina se l'app è in background.
    Un secondo silenzio resta acceso finché il brano non suona davvero. Nel sito non serve. */
 const inApp=/iPhone/.test(navigator.userAgent)&&!/Safari/.test(navigator.userAgent);const keepAudio=new Audio();keepAudio.loop=true;let keepT=0;
+/* App iPhone: se c'è il lettore nativo, i brani online li suona lui, coda compresa. La pagina resta la grafica
+   e si riallinea quando torna sveglia. I brani salvati solo qui passano ancora da audio.src. */
+const native=!!(window.nativeAudio&&window.nativeAudio.start);
+function nativeDesc(t){if(!t||!isCloud(t)||t.offline)return null;const c=coverOf(t),o={id:t.id,title:t.name,artist:lastSeg(t.folder)||'Le mie produzioni',art:c||'',duration:t.duration||0};
+  if(t.src==='gd')o.url=gdUrl(t);else{const a=acctFor(t);if(!a||!a.refresh)return null;o.path=t.dbxId;o.acct=a.refresh}return o}
+function nativeQueue(){if(!native)return;const out=[];for(const id of upcoming(30)){const d=nativeDesc(S.byId.get(id));if(!d)break;out.push(d)}audio.queue(out,S.repeat==='one',!jam&&!S.sleepTrack)}
+function nativeStart(t,autoplay,at){if(!native||jam||navigator.onLine===false)return false;const d=nativeDesc(t);if(!d)return false;d.art=artPNG(t)||d.art;
+  audio.start(d,at,autoplay,DBX_KEY);audio.playbackRate=S.speed;$('miniS').textContent=lastSeg(t.folder);setMedia(t);nativeQueue();return true}
+function nativeTrack(id){if(id===S.curId||!S.byId.has(id))return;const i=S.up.indexOf(id);if(i>=0)S.up.splice(0,i+1);else{const k=S.ctx.indexOf(id);if(k>=0)S.pos=k}
+  S.curId=id;lastPos=0;S.A=S.B=null;updateAB();$('mini').hidden=false;updateNow();markPlaying();setMedia(S.byId.get(id));savePos();setTimeout(renderUpNext,50)}
+if(native){audio.addEventListener('nativetrack',e=>nativeTrack(e.detail));
+  audio.addEventListener('nativestate',e=>{const v=e.detail;(v.played||[]).forEach(id=>{const t=S.byId.get(id);if(t){if(t.own==null)t.own=t.plays||0;t.own++;t.plays=(t.plays||0)+1;saveTrack(t);if(isCloud(t))syncDirty()}});
+    if(v.id)nativeTrack(v.id);else if(v.saved&&S.byId.has(v.saved.id)){if(v.saved.id!==S.curId)nativeTrack(v.saved.id);lastPos=v.saved.t||0;progress()}syncPlay();renderUpNext()});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)audio.sync()})}
 function keepOff(){clearTimeout(keepT);if(!keepAudio.paused)keepAudio.pause()}
-function keepOn(){if(!inApp||window.nativeAudio)return;try{silentUrl();if(keepAudio.src!==jamSilentUrl)keepAudio.src=jamSilentUrl;const q=keepAudio.play();if(q&&q.catch)q.catch(()=>{});clearTimeout(keepT);keepT=setTimeout(keepOff,30000)}catch(e){}}
+function keepOn(){if(!inApp||native)return;try{silentUrl();if(keepAudio.src!==jamSilentUrl)keepAudio.src=jamSilentUrl;const q=keepAudio.play();if(q&&q.catch)q.catch(()=>{});clearTimeout(keepT);keepT=setTimeout(keepOff,30000)}catch(e){}}
 audio.addEventListener('playing',()=>{if(audio.src!==jamSilentUrl)keepOff()});audio.addEventListener('error',keepOff);
 async function load(id,autoplay,at=0){if(jamHookLoad(id))return;seekHold=null;if(!at)lastPos=0;const t=S.byId.get(id);if(!t)return;const my=++loadToken;const changed=S.curId!==id;S.curId=id;S.A=S.B=null;updateAB();
   const mini=$('mini');if(mini.hidden){mini.hidden=false;mini.classList.remove('enter');void mini.offsetWidth;mini.classList.add('enter')}
   updateNow();markPlaying();if(changed){const b=$('bigArt');b.classList.remove('swap');void b.offsetWidth;b.classList.add('swap')}
   /* su iPhone l'app in background resta sveglia solo se suona: mentre preparo il brano faccio partire subito un silenzio,
      così si può bloccare lo schermo appena toccato il brano */
+  if(nativeStart(t,autoplay,at))return;
   if(autoplay&&audio.paused&&!jamIsGuest()){try{silentUrl();audio.loop=true;audio.src=jamSilentUrl;const q=audio.play();if(q&&q.catch)q.catch(()=>{})}catch(e){}}
   if(autoplay&&!jamIsGuest())keepOn();
   const src=await srcFor(t);if(my!==loadToken)return;
@@ -976,7 +991,7 @@ let counted=null;
 ['seeked','play','pause','ratechange','loadedmetadata'].forEach(ev=>audio.addEventListener(ev,()=>{pgPS=0}));
 audio.addEventListener('ended',()=>{if(jamSilentUrl&&audio.src===jamSilentUrl)return;if(S.sleepTrack){S.sleepTrack=false;updTimer();audio.currentTime=0;return}if(jamIsGuest()){jamEnded();return}if(S.repeat==='one'){audio.currentTime=0;audio.play().catch(()=>{});return}next(true)});
 audio.addEventListener('play',()=>{syncPlay();loop()});audio.addEventListener('pause',syncPlay);
-audio.addEventListener('timeupdate',()=>{if(audio.src===jamSilentUrl)return;const t=S.byId.get(S.curId);if(t&&counted!==t.id&&audio.currentTime>Math.min(30,(audio.duration||60)/2)){counted=t.id;if(t.own==null)t.own=t.plays||0;t.own++;t.plays=(t.plays||0)+1;saveTrack(t);if(isCloud(t))syncDirty()}abCheck()});
+audio.addEventListener('timeupdate',()=>{if(audio.src===jamSilentUrl)return;const t=S.byId.get(S.curId);if(t&&!audio.src.startsWith('native:')&&counted!==t.id&&audio.currentTime>Math.min(30,(audio.duration||60)/2)){counted=t.id;if(t.own==null)t.own=t.plays||0;t.own++;t.plays=(t.plays||0)+1;saveTrack(t);if(isCloud(t))syncDirty()}abCheck()});
 audio.addEventListener('loadedmetadata',()=>{if(audio.src===jamSilentUrl)return;const t=S.byId.get(S.curId);if(t&&isFinite(audio.duration)&&Math.abs((t.duration||0)-audio.duration)>1){t.duration=audio.duration;saveTrack(t)}progress()});
 function syncPlay(){const p=audio.paused;$('play').innerHTML=ICON[p?'play':'pause'](46);$('miniPlay').innerHTML=ICON[p?'play':'pause'](26);
   $('np').classList.toggle('paused',p);document.querySelectorAll('.row').forEach(r=>r.classList.toggle('paused',p));
@@ -1026,7 +1041,7 @@ function updateNow(){const t=S.byId.get(S.curId);if(!t)return;
   $('tech').innerHTML=kv.join('')+`<span style="flex-basis:100%;font-family:var(--font)">${esc(t.file)}${isCloud(t)?` · ${cloudName(t)}, ${t.offline?'scaricato sul telefono':'in streaming'}`:''}</span>`;
   progress();syncPlay();renderUpNext()}
 let upSig='';
-function renderUpNext(){jamPush();const box=$('upNext'),L=$('upList');if(!box)return;const ids=upcoming(4);box.hidden=!ids.length;
+function renderUpNext(){jamPush();nativeQueue();const box=$('upNext'),L=$('upList');if(!box)return;const ids=upcoming(4);box.hidden=!ids.length;
   const sig=ids.map((id,i)=>{const t=S.byId.get(id)||{};return id+'|'+(i<S.up.length?'q':'')+(cacheIdx[id]||t.offline||urls[id]?'r':'')+'|'+(t.name||'')+'|'+(coverOf(t)?'c':'')}).join('\n');if(sig===upSig&&L.children.length)return;const fresh=!upSig||ids[0]!==upSig.split('\n')[0].split('|')[0];upSig=sig;L.classList.toggle('still',!fresh);
   L.innerHTML=ids.map((id,i)=>{const t=S.byId.get(id);if(!t)return'';const q=i<S.up.length;return`<button class="up-item" data-up="${i}" style="animation-delay:${i*40}ms"><div class="art" data-a="${id}"></div><div class="txt"><div class="t">${esc(t.name)}</div><div class="s">${q?'<span class="q">In coda · </span>':''}${esc(lastSeg(t.folder))}${t.duration?' · '+fmt(t.duration):''}</div></div>${cacheIdx[id]||t.offline||urls[id]?'<span class="s" title="Pronto">'+ICON.down+'</span>':''}</button>`}).join('');
   L.querySelectorAll('[data-a]').forEach(a=>paintArt(a,S.byId.get(a.dataset.a)));
@@ -2090,7 +2105,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261030221109';
+const APP_VER='20261030223016';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -2184,6 +2199,7 @@ function installBar(){if(!instEvt||$('instBar')||isApp())return;const d=document
   try{const r=JSON.parse(ls.get('sp-resume')||'null');if(r&&S.byId.has(r.id)){S.ctx=(r.ctx||[]).filter(id=>S.byId.has(id));if(!S.ctx.includes(r.id))S.ctx=[r.id];S.ctxBase=[...S.ctx];S.pos=S.ctx.indexOf(r.id);S.ctxLabel=r.label||'';
     S.curId=r.id;lastPos=r.t||0;$('mini').hidden=false;updateNow();markPlaying();
     const t=S.byId.get(r.id),d=t.duration||0;progress()}}catch(e){}
+  if(native)audio.sync();
   /* ora Dropbox vince sui doppioni: i brani Dropbox nascosti come doppioni di Drive tornano visibili (una volta sola) */
   if(SET.uiV!==4){SET.uiV=4;if(!SET.coverStyle||SET.coverStyle==='classica')SET.coverStyle='grafite';SET.tech=false;saveSet();applySettings();render();if(S.curId)updateNow()}
   if(SET.dedupeV!==2){SET.dedupeV=2;saveSet();const h=hiddenIds();if(h.some(x=>String(x).startsWith('dbx:')))ls.set('sp-hidden',JSON.stringify(h.filter(x=>!String(x).startsWith('dbx:'))))}
