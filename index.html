@@ -925,7 +925,7 @@ async function srcFor(t){if(isCloud(t)&&!urls[t.id]&&!t.offline){const c=await c
   trimUrls();
   urls[t.id]=URL.createObjectURL(typed(b,t.file));return urls[t.id]}
 function shuffled(ids,first){const a=ids.filter(i=>i!==first);for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}if(first)a.unshift(first);return a}
-function startContext(ids,startId,label){if(!audio.src)jamUnlock();S.ctxBase=[...ids];S.ctx=S.shuffle?shuffled(ids,startId):[...ids];S.pos=Math.max(0,S.ctx.indexOf(startId));S.ctxLabel=label||'';load(S.ctx[S.pos],true)}
+function startContext(ids,startId,label){if(!audio.src&&!native)jamUnlock();S.ctxBase=[...ids];S.ctx=S.shuffle?shuffled(ids,startId):[...ids];S.pos=Math.max(0,S.ctx.indexOf(startId));S.ctxLabel=label||'';load(S.ctx[S.pos],true)}
 let loadToken=0;
 /* App iPhone: quando il silenzio lascia il posto al brano iOS sospenderebbe la pagina se l'app è in background.
    Un secondo silenzio resta acceso finché il brano non suona davvero. Nel sito non serve. */
@@ -976,7 +976,7 @@ audio.addEventListener('error',()=>{const t=S.byId.get(S.curId);if(!t||!audio.sr
   if(isCloud(t)&&!audio.src.startsWith('blob:')){cloudFallback(t);return}
   playError(t)});
 function toggle(){if(!S.curId){const v=S.visible.length?S.visible:lib().map(t=>t.id);if(v.length)startContext(v,S.shuffle?v[Math.floor(Math.random()*v.length)]:v[0],$('h1').textContent);return}
-  if(audio.paused){if(!audio.src||audio.src===jamSilentUrl){if(!audio.src)jamUnlock();load(S.curId,true,lastPos);return}audio.play().catch(()=>{})}else audio.pause()}
+  if(audio.paused){if(!audio.src||audio.src===jamSilentUrl){if(!audio.src&&!native)jamUnlock();load(S.curId,true,lastPos);return}audio.play().catch(()=>{})}else audio.pause()}
 function next(auto){setTimeout(preloadNext,600);setTimeout(renderUpNext,50);while(S.up.length&&S.up[0]===S.curId)S.up.shift();
   if(S.up.length){const id=S.up.shift();load(id,true);return}
   if(!S.ctx.length)return;let p=S.pos+1;
@@ -2108,7 +2108,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261030234217';
+const APP_VER='20261031002249';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
