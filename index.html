@@ -106,7 +106,7 @@ h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:-.02
 .tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 5px;margin-right:6px;vertical-align:1px}
 .tag.ll{color:var(--accent);border-color:currentColor}
 .bars{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;gap:3px;padding-bottom:14px;background:rgba(0,0,0,.4)}
-.bars i{width:4px;background:#fff;border-radius:2px;height:22px;transform-origin:50% 100%;transform:scaleY(.36);animation:eq .9s ease-in-out infinite}
+.bars i{width:4px;background:#fff;border-radius:2px;height:22px;transform-origin:50% 100%;transform:scaleY(.36);will-change:transform;animation:eq .9s ease-in-out infinite}
 .bars i:nth-child(2){animation-delay:-.3s}.bars i:nth-child(3){animation-delay:-.6s}
 .paused .bars i{animation-play-state:paused}
 @keyframes eq{0%,100%{transform:scaleY(.27)}50%{transform:scaleY(1)}}
@@ -935,7 +935,7 @@ const inApp=/iPhone/.test(navigator.userAgent)&&!/Safari/.test(navigator.userAge
 const native=!!(window.nativeAudio&&window.nativeAudio.start);
 function nativeDesc(t){if(!t||!isCloud(t)||t.offline)return null;const c=coverOf(t),o={id:t.id,title:t.name,artist:lastSeg(t.folder)||'Le mie produzioni',art:c||'',duration:t.duration||0};
   if(t.src==='gd')o.url=gdUrl(t);else{const a=acctFor(t);if(!a||!a.refresh)return null;o.path=t.dbxId;o.acct=a.refresh}return o}
-function nativeQueue(){if(!native)return;const out=[];for(const id of upcoming(30)){const d=nativeDesc(S.byId.get(id));if(!d)break;out.push(d)}audio.queue(out,S.repeat==='one',!jam&&!S.sleepTrack)}
+let nqKey='';function nativeQueue(){if(!native)return;const out=[];for(const id of upcoming(30)){const d=nativeDesc(S.byId.get(id));if(!d)break;out.push(d)}const one=S.repeat==='one',adv=!jam&&!S.sleepTrack,k=S.curId+'|'+out.map(d=>d.id).join()+'|'+one+adv;if(k===nqKey)return;nqKey=k;audio.queue(out,one,adv)}
 function nativeStart(t,autoplay,at){if(!native||jam||navigator.onLine===false)return false;const d=nativeDesc(t);if(!d)return false;d.art=artPNG(t)||d.art;
   audio.start(d,at,autoplay,DBX_KEY);audio.playbackRate=S.speed;$('miniS').textContent=lastSeg(t.folder);setMedia(t);nativeQueue();return true}
 function nativeTrack(id){if(id===S.curId||!S.byId.has(id))return;const i=S.up.indexOf(id);if(i>=0)S.up.splice(0,i+1);else{const k=S.ctx.indexOf(id);if(k>=0)S.pos=k}
@@ -996,7 +996,8 @@ audio.addEventListener('loadedmetadata',()=>{if(audio.src===jamSilentUrl)return;
 function syncPlay(){const p=audio.paused;$('play').innerHTML=ICON[p?'play':'pause'](46);$('miniPlay').innerHTML=ICON[p?'play':'pause'](26);
   $('np').classList.toggle('paused',p);document.querySelectorAll('.row').forEach(r=>r.classList.toggle('paused',p));
   try{navigator.mediaSession.playbackState=p?'paused':'playing'}catch(e){}savePos()}
-let rafId=0;function loop(){cancelAnimationFrame(rafId);progress();abCheck();rafId=audio.paused?0:requestAnimationFrame(loop)}
+/* con la schermata di ascolto chiusa si vede solo la barra del mini player, che si muove di pochi pixel al secondo: niente ridisegno a ogni fotogramma, così le animazioni restano libere */
+let rafId=0,loopAt=0;function loop(t){cancelAnimationFrame(rafId);if(!t||t-loopAt>=250||$('np').classList.contains('open')){loopAt=t||0;progress();abCheck()}rafId=audio.paused?0:requestAnimationFrame(loop)}
 function abCheck(){if(S.A!=null&&S.B!=null&&audio.currentTime>=S.B){audio.currentTime=S.A}}
 
 /* ================= schermata di ascolto ================= */
@@ -2107,7 +2108,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261030224420';
+const APP_VER='20261030234217';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
