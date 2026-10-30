@@ -1660,14 +1660,16 @@ async function dbxConnect(more){if(!DBX_KEY){toast('Dropbox non è ancora config
     if(more)p.force_reauthentication='true';
     location.href='https://www.dropbox.com/oauth2/authorize?'+new URLSearchParams(p)}
   catch(e){toast('Apri il player dal link sicuro (https) per collegare Dropbox')}}
-async function dbxTokenReq(params){const r=await fetch('https://api.dropboxapi.com/oauth2/token',{method:'POST',body:new URLSearchParams({client_id:DBX_KEY,...params})});
+/* appena l'app torna attiva iOS può far fallire la prima richiesta (connessione vecchia): riprovo da solo */
+async function netFetch(url,init){for(let i=0;;i++){try{return await fetch(url,init)}catch(e){if(i>=2||navigator.onLine===false)throw e;await new Promise(z=>setTimeout(z,800*(i+1)))}}}
+async function dbxTokenReq(params){const r=await netFetch('https://api.dropboxapi.com/oauth2/token',{method:'POST',body:new URLSearchParams({client_id:DBX_KEY,...params})});
   if(!r.ok)throw Object.assign(new Error('token'),{status:r.status});return r.json()}
 const tokP=new Map();
 async function dbxToken(ac,force){if(!ac||!ac.refresh)throw new Error('nolink');if(!force&&ac.access&&Date.now()<ac.exp-60000)return ac.access;
   if(!tokP.has(ac))tokP.set(ac,dbxTokenReq({grant_type:'refresh_token',refresh_token:ac.refresh}).then(j=>{ac.access=j.access_token;ac.exp=Date.now()+j.expires_in*1000;saveAccts();return ac.access},
     e=>{if(e.status===400||e.status===401){ac.refresh=null;ac.access=null;saveAccts();toast(`Dropbox "${acctLabel(ac)}" si è scollegato: ricollegalo dalle impostazioni`,4200)}throw e}).finally(()=>tokP.delete(ac)));
   return tokP.get(ac)}
-async function dbxFetch(ac,url,init,retry=true){const tok=await dbxToken(ac);const r=await fetch(url,{...init,headers:{...(init.headers||{}),Authorization:'Bearer '+tok}});
+async function dbxFetch(ac,url,init,retry=true){const tok=await dbxToken(ac);const r=await netFetch(url,{...init,headers:{...(init.headers||{}),Authorization:'Bearer '+tok}});
   if(r.status===401&&retry){await dbxToken(ac,true);return dbxFetch(ac,url,init,false)}
   if(r.status===429&&retry){await new Promise(z=>setTimeout(z,(+r.headers.get('Retry-After')||2)*1000));return dbxFetch(ac,url,init,false)}
   if(!r.ok&&r.status!==206){let t='';try{t=await r.text()}catch(e){}throw Object.assign(new Error('dbx '+r.status+' '+t.slice(0,200)),{status:r.status,body:t})}return r}
@@ -2105,7 +2107,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261030223016';
+const APP_VER='20261030224420';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
