@@ -560,7 +560,7 @@ function applySettings(){
 const S={tracks:[],byId:new Map(),covers:{},tab:'songs',folder:null,query:'',
   ctx:[],pos:-1,up:[],curId:null,ctxLabel:'',shuffle:false,repeat:'off',speed:1,sleepEnd:0,sleepTrack:false,A:null,B:null,visible:[]};
 try{const m=JSON.parse(ls.get('sp-modes')||'{}');S.shuffle=!!m.shuffle;S.repeat=['off','all','one'].includes(m.repeat)?m.repeat:'off';S.speed=+m.speed||1}catch(e){}
-const audio=new Audio();audio.preload='auto';
+const audio=window.nativeAudio||new Audio();audio.preload='auto';
 try{audio.preservesPitch=true;audio.mozPreservesPitch=true;audio.webkitPreservesPitch=true}catch(e){}
 const urls={};
 
@@ -931,7 +931,7 @@ let loadToken=0;
    Un secondo silenzio resta acceso finché il brano non suona davvero. Nel sito non serve. */
 const inApp=/iPhone/.test(navigator.userAgent)&&!/Safari/.test(navigator.userAgent);const keepAudio=new Audio();keepAudio.loop=true;let keepT=0;
 function keepOff(){clearTimeout(keepT);if(!keepAudio.paused)keepAudio.pause()}
-function keepOn(){if(!inApp)return;try{silentUrl();if(keepAudio.src!==jamSilentUrl)keepAudio.src=jamSilentUrl;const q=keepAudio.play();if(q&&q.catch)q.catch(()=>{});clearTimeout(keepT);keepT=setTimeout(keepOff,30000)}catch(e){}}
+function keepOn(){if(!inApp||window.nativeAudio)return;try{silentUrl();if(keepAudio.src!==jamSilentUrl)keepAudio.src=jamSilentUrl;const q=keepAudio.play();if(q&&q.catch)q.catch(()=>{});clearTimeout(keepT);keepT=setTimeout(keepOff,30000)}catch(e){}}
 audio.addEventListener('playing',()=>{if(audio.src!==jamSilentUrl)keepOff()});audio.addEventListener('error',keepOff);
 async function load(id,autoplay,at=0){if(jamHookLoad(id))return;seekHold=null;if(!at)lastPos=0;const t=S.byId.get(id);if(!t)return;const my=++loadToken;const changed=S.curId!==id;S.curId=id;S.A=S.B=null;updateAB();
   const mini=$('mini');if(mini.hidden){mini.hidden=false;mini.classList.remove('enter');void mini.offsetWidth;mini.classList.add('enter')}
