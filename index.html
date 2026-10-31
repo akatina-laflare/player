@@ -983,16 +983,16 @@ async function cloudFallback(t){if(fellBack.has(t.id))return false;fellBack.add(
 audio.addEventListener('error',()=>{const t=S.byId.get(S.curId);if(!t||!audio.src)return;
   if(isCloud(t)&&!audio.src.startsWith('blob:')){cloudFallback(t);return}
   playError(t)});
-function toggle(){if(jamIsGuest()&&jam.st&&jam.missing){jamAsk({a:'pl',v:!jam.st.pl});return}if(!S.curId){const v=S.visible.length?S.visible:lib().map(t=>t.id);if(v.length)startContext(v,S.shuffle?v[Math.floor(Math.random()*v.length)]:v[0],$('h1').textContent);return}
+function toggle(){if(jamIsGuest()&&jam.st){jamToggle();return}if(!S.curId){const v=S.visible.length?S.visible:lib().map(t=>t.id);if(v.length)startContext(v,S.shuffle?v[Math.floor(Math.random()*v.length)]:v[0],$('h1').textContent);return}
   if(audio.paused){if(!audio.src||audio.src===jamSilentUrl){if(!audio.src&&!native)jamUnlock();load(S.curId,true,lastPos);return}audio.play().catch(()=>{})}else audio.pause()}
-function next(auto){setTimeout(preloadNext,600);setTimeout(renderUpNext,50);while(S.up.length&&S.up[0]===S.curId)S.up.shift();
+function next(auto){if(!auto&&jamIsGuest()&&!jam.applying){jamRemote('next');return}setTimeout(preloadNext,600);setTimeout(renderUpNext,50);while(S.up.length&&S.up[0]===S.curId)S.up.shift();
   if(S.up.length){const id=S.up.shift();load(id,true);return}
   if(!S.ctx.length)return;let p=S.pos+1;
   if(p>=S.ctx.length){if(S.repeat==='all'){if(S.shuffle)S.ctx=shuffled(S.ctxBase||S.ctx);p=0}else{if(auto){audio.pause();audio.currentTime=0}else{S.pos=S.ctx.length-1;audio.currentTime=0;audio.pause()}return}}
   S.pos=p;load(S.ctx[p],true)}
 /* indietro: la prima volta ricomincia il brano, due tocchi ravvicinati portano al brano precedente */
 let lastPrev=0;
-function prev(){const now=performance.now(),quick=now-lastPrev<1600;lastPrev=now;
+function prev(){if(jamIsGuest()){jamRemote('prev');return}const now=performance.now(),quick=now-lastPrev<1600;lastPrev=now;
   if(S.ctx.length&&S.pos>0&&(quick||audio.currentTime<=3)){S.pos--;load(S.ctx[S.pos],true);return}
   holdSeek(0);audio.currentTime=0;progress()}
 let counted=null;
@@ -1146,7 +1146,7 @@ function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false,vx=0,lx=0,
     const t=Math.max(0,Math.min(d?d-.2:1e9,acc.base+acc.sum));holdSeek(t);try{audio.currentTime=t}catch(e){}progress();return acc.sum||s};
   const goTrack=d=>{const w=big.clientWidth+80;big.classList.remove('spring');big.classList.add('slide');set(d>0?-w:w,'0');
       setTimeout(()=>{big.classList.remove('slide');big.style.transform=`translateX(${d>0?w*.6:-w*.6}px) scale(.88)`;big.style.opacity='0';
-        if(d>0)next(false);else if(S.ctx.length&&S.pos>0){S.pos--;load(S.ctx[S.pos],true)}else{holdSeek(0);audio.currentTime=0}
+        if(d>0)next(false);else if(jamIsGuest())prev();else if(S.ctx.length&&S.pos>0){S.pos--;load(S.ctx[S.pos],true)}else{holdSeek(0);audio.currentTime=0}
         requestAnimationFrame(()=>requestAnimationFrame(()=>{big.classList.add('spring');big.style.transform='';big.style.opacity='';setTimeout(()=>big.classList.remove('spring'),620)}))},230)};
   swipeable(big,{th:70,move:dx=>{big.classList.remove('spring');follow(dx);showZone(kind(dx),dx)},
     reset:()=>{springBack();showZone(null)},
@@ -1159,7 +1159,7 @@ function swipeable(el,opt){let x0=null,y0=0,dx=0,dir=null,moved=false,vx=0,lx=0,
   const mini=$('openNp');
   swipeable(mini,{th:50,move:dx=>{mini.style.transform=`translateX(${dx*.6}px)`;mini.style.opacity=String(Math.max(.3,1-Math.abs(dx)/300))},
     reset:()=>{mini.style.transition='transform .2s,opacity .2s';mini.style.transform='';mini.style.opacity='';setTimeout(()=>mini.style.transition='',220)},
-    go:d=>{mini.style.transition='transform .2s,opacity .2s';mini.style.transform='';mini.style.opacity='';setTimeout(()=>mini.style.transition='',220);if(d>0)next(false);else{if(audio.currentTime>3)audio.currentTime=0;prev()}}})})();
+    go:d=>{mini.style.transition='transform .2s,opacity .2s';mini.style.transform='';mini.style.opacity='';setTimeout(()=>mini.style.transition='',220);if(d>0)next(false);else{if(!jamIsGuest()&&audio.currentTime>3)audio.currentTime=0;prev()}}})})();
 
 /* ================= modalità, timer, velocità, loop ================= */
 function saveModes(){ls.set('sp-modes',JSON.stringify({shuffle:S.shuffle,repeat:S.repeat,speed:S.speed}))}
@@ -1916,6 +1916,8 @@ function jamCmd(o){const who=o.who||'Qualcuno',ctl=jam.ctl!==false;
   if(!ctl){jamPush(true);return}
   if(o.a==='play'){const t=jamFind(o.k,o.n);if(!t){toast(`${who} vorrebbe «${o.n}», ma non è nella tua libreria`,3500);jamPush(true);return}
     if(t.id!==S.curId){toast(`${who} ha messo «${t.name}»`,2200);jamGo(t.id)}jamPush(true)}
+  else if(o.a==='next'){if(upcoming(1).length)next(false);else toast(`${who}: non ci sono altri brani in coda`,2200);jamPush(true)}
+  else if(o.a==='prev'){if(S.ctx.length&&S.pos>0){S.pos--;load(S.ctx[S.pos],true)}else{holdSeek(0);audio.currentTime=0}jamPush(true)}
   else if(o.a==='pl'){if(o.v){if(!S.curId||!audio.src)toggle();else audio.play().catch(()=>{})}else audio.pause();jamPush(true)}
   else if(o.a==='seek'){let p=+o.p||0;if(o.pl)p+=Math.max(0,(Date.now()-o.ts)/1000);const d=audio.duration||0;try{audio.currentTime=d?Math.min(d-.1,p):p}catch(e){}jamPush(true)}}
 
@@ -1929,7 +1931,7 @@ function jamDrift(){if(!jamIsGuest()||!jam.st||jam.missing||Date.now()<(jam.hold
   const gap=Math.abs((audio.currentTime||0)-tg),now=Date.now();if(gap<(s.pl?(s.solo?2.5:1.2):.3)||(gap<5&&now<(jam.syncAt||0)))return;
   jam.syncAt=now+8000;jamSetTime(tg)}
 function jamNeedTap(){if(!jam)return;jam.needTap=true;jamUI()}
-async function jamApply(){if(!jamIsGuest()||!jam.st)return;const s=jam.st,j=jam;
+async function jamApply(){if(!jamIsGuest()||!jam.st)return;const s=jam.st,j=jam;if(j.want!=null&&s.pl!==j.want&&Date.now()<(j.hold||0))return;
   if(Date.now()-s.ts>10*60e3&&!j.live){jamUI();return}  // stato vecchio: aspetto che l'host risponda
   j.live=true;j.quiet=Date.now()+1500;
   /* "musica solo sul telefono di chi ha avviato la Jam": qui resta tutto sincronizzato ma senza suono */
@@ -1944,13 +1946,18 @@ async function jamApply(){if(!jamIsGuest()||!jam.st)return;const s=jam.st,j=jam;
     if(s.pl&&audio.paused&&audio.readyState>=1)audio.play().catch(()=>jamNeedTap())}
   else{jamDrift();if(s.pl&&audio.paused)audio.play().catch(()=>jamNeedTap());else if(!s.pl&&!audio.paused)audio.pause()}
   renderUpNext();setTimeout(preloadNext,300);jamUI()}
-function jamAsk(o){o.y='cmd';jam.hold=Date.now()+3000;jamSend(o);if(o.a!=='pl')return;const j=jam;clearTimeout(j.ack);
-  j.ack=setTimeout(()=>{if(jam===j){toast('Il telefono di chi ha avviato la Jam non risponde: deve avere il player aperto',4000);jamApply()}},5000)}
+function jamAsk(o){o.y='cmd';jam.hold=Date.now()+3000;jamSend(o);if(o.a==='add'||o.a==='seek')return;const j=jam;clearTimeout(j.ack);
+  j.ack=setTimeout(()=>{if(jam===j){j.want=null;toast('Il telefono di chi ha avviato la Jam non risponde: deve avere il player aperto',4000);jamApply()}},5000)}
+/* chi entra è un telecomando: chiede e il brano cambia quando l'host risponde. Play e pausa si vedono subito (j.want) */
+const jamLocked=()=>{if(jam.st&&jam.st.ctl===false){toast('Solo chi ha avviato la Jam può comandare la musica');return true}return false};
+function jamRemote(a){if(jamLocked())return;jamAsk({a})}
+function jamToggle(){if(jamLocked())return;const j=jam,v=!(j.want!=null?j.want:j.st.pl);j.want=v;j.quiet=Date.now()+1500;jamAsk({a:'pl',v});
+  if(!j.missing&&jamOnHostTrack()){if(v)audio.play().catch(()=>{});else audio.pause()}}
 /* chiamato all'inizio di load(): se l'ospite sceglie un altro brano lo chiede all'host */
 function jamHookLoad(id){if(!jamIsGuest()||jam.applying)return false;const t=S.byId.get(id);if(!t)return false;
   if(jam.st&&jamKey(t)===jam.st.k)return false;
   if(jam.st&&jam.st.ctl===false){jamAsk({a:'add',k:jamKey(t),n:t.name});toast(`«${t.name}» aggiunto alla coda della Jam`);setTimeout(jamApply,60);return true}
-  jamAsk({a:'play',k:jamKey(t),n:t.name});return false}
+  if(!jam.st)return false;jamAsk({a:'play',k:jamKey(t),n:t.name});toast(`Chiedo «${t.name}»…`,1800);return true}
 function jamQueue(id,first){if(!jamIsGuest())return false;const t=S.byId.get(id);if(!t)return true;
   jamAsk({a:'add',k:jamKey(t),n:t.name,next:!!first});toast(`«${t.name}» aggiunto alla Jam`);return true}
 function jamEnded(){const id=S.curId;setTimeout(()=>{if(jamIsGuest()&&S.curId===id&&audio.ended){jam.applying=true;next(true);jam.applying=false}},3000)}
@@ -1962,7 +1969,7 @@ async function jamOnMsg(d,j){if(jam!==j)return;j.lastId=d.id;jamSave();let o;try
     else if(o.y==='bye'){if(j.peers[o.from]){delete j.peers[o.from];if(age<120e3)toast(`${o.who||'Qualcuno'} è uscito dalla Jam`,2600);jamUI();jamPush(true)}}
     else if(o.y==='cmd'&&age<120e3){if(!j.peers[o.from]){j.peers[o.from]={n:o.who||'Ospite'};jamUI()}j.peers[o.from].at=Date.now();jamCmd(o)}}
   else{
-    if(o.y==='st'){clearTimeout(j.ack);if(!j.st||o.ts>=j.st.ts){j.st=o;j.host=o.from;clearTimeout(j.at);j.at=setTimeout(jamApply,40)}
+    if(o.y==='st'){if(j.want==null||o.pl===j.want){clearTimeout(j.ack);j.want=null}if(!j.st||o.ts>=j.st.ts){j.st=o;j.host=o.from;clearTimeout(j.at);j.at=setTimeout(jamApply,40)}
       if(o.ask&&age<120e3)setTimeout(()=>{if(jam===j)jamSend({y:'hi'},j)},300+Math.random()*1500)}
     else if(o.y==='end'&&(!j.host||o.from===j.host)&&age<6*3600e3){toast(`${o.who||'L\'host'} ha chiuso la Jam`,3500);jamStop(true)}}}
 
@@ -1977,14 +1984,15 @@ function jamUnlock(){/* sbloccare l'audio con un tocco: dopo, i brani della Jam 
     audio.play().then(()=>{if(audio.src===jamSilentUrl){audio.pause();audio.removeAttribute('src');audio.load()}}).catch(()=>{})}catch(e){}}
 async function jamBegin(code,role,resume){if(jam)jamStop(false);const k=await jamKeys(code);
   jam={code,role,topic:k.topic,key:k.key,peers:{},st:null,lastId:resume&&resume.lastId||null,ctl:role==='host'?SET.jamCtl!==false:true,solo:role==='host'?SET.jamSolo!==false:false};
-  jamAwake(true);jamSave();jamConnect(jam.lastId||(role==='guest'?'latest':null));jamUI();if(S.curId)updateNow();
+  if(role==='guest'&&!audio.paused)audio.pause();jamAwake(true);jamSave();jamConnect(jam.lastId||(role==='guest'?'latest':null));jamUI();if(S.curId)updateNow();
   if(role==='host'){const s=jamState();s.ask=1;jam.sig=JSON.stringify([s.k,s.pl,s.q.map(x=>x.k),s.m,s.ctl,s.r,s.solo]);jamSend(s)}else jamSend({y:'hi'})}
 function jamStop(remote){if(!jam)return;const j=jam;if(!remote)jamSend({y:j.role==='host'?'end':'bye'},j);
   clearTimeout(j.rt);clearTimeout(j.pt);clearTimeout(j.at);setTimeout(()=>{if(j.close)j.close()},remote?0:1500);
-  jamAwake(false);jam=null;ls.del('sp-jam');audio.muted=false;if(S.ctxLabel==='Jam')S.ctxLabel='';jamUI();if(S.curId)updateNow()}
+  /* uscendo da una Jam muta il brano non deve partire di colpo ad alto volume */
+  if(j.role==='guest'&&j.st&&j.st.solo&&!audio.paused)audio.pause();clearTimeout(j.ack);jamAwake(false);jam=null;ls.del('sp-jam');audio.muted=false;if(S.ctxLabel==='Jam')S.ctxLabel='';jamUI();if(S.curId)updateNow()}
 function jamBoot(){const m=location.hash.match(/jam=([A-Za-z0-9]{6})/);
   if(m){history.replaceState(null,'',location.pathname+location.search);setTimeout(()=>jamSheet(m[1].toUpperCase()),600);return}
-  try{const r=JSON.parse(ls.get('sp-jam')||'null');if(r&&r.code&&Date.now()-r.at<6*3600e3){jamBegin(r.code,r.role,r).then(()=>{if(r.role==='guest'&&audio.paused)jamNeedTap()})}}catch(e){}}
+  try{const r=JSON.parse(ls.get('sp-jam')||'null');if(r&&r.code&&Date.now()-r.at<6*3600e3){jamBegin(r.code,r.role,r).then(()=>{if(r.role==='guest'&&audio.paused)jamNeedTap();/* Jam finita mentre il player era chiuso: non resto bloccato ad aspettarla */if(r.role==='guest')setTimeout(()=>{if(jamIsGuest()&&jam.code===r.code&&!jam.st){toast('La Jam non è più attiva',3000);jamStop(false)}},20000)})}}catch(e){}}
 
 /* --- QR: mostra e scansiona --- */
 const loadJs=(()=>{const m={};return(u,sri)=>m[u]||(m[u]=new Promise((ok,ko)=>{const s=document.createElement('script');if(sri){s.integrity=sri;s.crossOrigin='anonymous'}s.src=u;s.async=true;s.onload=ok;s.onerror=()=>{delete m[u];s.remove();ko(new Error('net'))};document.head.appendChild(s)}))})();
@@ -2065,7 +2073,7 @@ const jamUser=()=>jamIsGuest()&&Date.now()>(jam.quiet||0)&&audio.src!==jamSilent
 audio.addEventListener('play',()=>{if(jamUser()&&jam.st&&!jam.st.pl&&!jam.missing&&jamOnHostTrack()){if(jam.st.ctl===false){jam.quiet=Date.now()+1000;audio.pause();toast('Solo chi ha avviato la Jam può mettere in pausa o far ripartire');return}jamAsk({a:'pl',v:true})}});
 audio.addEventListener('pause',()=>{if(jamUser()&&!audio.ended&&jam.st&&jam.st.pl&&!jam.missing&&jamOnHostTrack()){if(jam.st.ctl===false){jam.quiet=Date.now()+1000;audio.play().catch(()=>{});toast('Solo chi ha avviato la Jam può mettere in pausa');return}jamAsk({a:'pl',v:false})}});
 audio.addEventListener('seeked',()=>{if(!jamUser()||Date.now()-(jam.ownSeek||0)<1000||!jam.st||!jamOnHostTrack())return;
-  if(Math.abs(audio.currentTime-jamTarget(jam.st))>2.5){if(jam.st.ctl===false){jamDrift();return}jamAsk({a:'seek',p:audio.currentTime,pl:!audio.paused})}});
+  if(Math.abs(audio.currentTime-jamTarget(jam.st))>1.5){if(jam.st.ctl===false){jam.syncAt=0;jamDrift();return}jamAsk({a:'seek',p:audio.currentTime,pl:!audio.paused})}});
 ['loadedmetadata','playing'].forEach(ev=>audio.addEventListener(ev,()=>{if(jamIsGuest()){if(ev==='playing'&&jam.needTap&&audio.src!==jamSilentUrl){jam.needTap=false;jamUI()}setTimeout(jamDrift,60)}}));
 setInterval(()=>{if(jamIsGuest()&&!audio.paused)jamDrift()},4000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&jam){jamAwake(true);jamConnect(jam.lastId||'2m');if(jamIsHost())jamPush()}});
@@ -2131,7 +2139,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261031020737';
+const APP_VER='20261031021845';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
