@@ -866,7 +866,7 @@ function render(){
   $('count').textContent=v.length?`${v.length} ${v.length===1?'brano':'brani'}`:'';
   $('playAll').disabled=$('shufAll').disabled=!v.length;
   const listHTML=v.length?v.map(rowHTML).join(''):`<li class="none">${S.query?'Nessun brano corrisponde alla ricerca.':S.tab==='favs'?'Nessun preferito: tocca il cuore su un brano per aggiungerlo qui.':inPl?'Playlist vuota: aggiungi brani dal menu ··· di un brano, "Aggiungi a playlist".':'Nessun brano.'}</li>`;
-  if(dbxOn()&&(!native||jam))setTimeout(()=>warmLinks(S.visible.slice(0,25)),400);
+  if(dbxOn()&&!native)setTimeout(()=>warmLinks(S.visible.slice(0,25)),400);
   /* gli aggiornamenti da Dropbox arrivano spesso e di solito non cambiano nulla: la lista resta dov'è */
   const listSig=listHTML+'|'+SET.coverStyle+darkNow()+v.reduce((n,t)=>n+(coverOf(t)||'').length,0);if(!animate&&listSig===L.dataSig&&L.children.length)return;L.dataSig=listSig;L.innerHTML=listHTML;
   L.classList.toggle('anim',animate);if(animate)[...L.children].slice(0,18).forEach((r,i)=>r.style.animationDelay=(i*22)+'ms');
@@ -911,7 +911,7 @@ let prefetching=null,prefetchRun=0;const inflight={};
 function cloudBlobOnce(t){if(!inflight[t.id])inflight[t.id]=cloudBlob(t).finally(()=>{setTimeout(()=>{delete inflight[t.id]},0)});return inflight[t.id]}
 function trimUrls(){const keep=new Set([S.curId,...upcoming(2)]);const ks=Object.keys(urls).filter(k=>!keep.has(k));
   while(ks.length>1){const k=ks.shift();URL.revokeObjectURL(urls[k]);delete urls[k];delete shareBlobs[k]}}
-async function preloadNext(){if(native&&!jam)return;const run=++prefetchRun;
+async function preloadNext(){if(native)return;const run=++prefetchRun;
   for(const id of upcoming(2)){if(run!==prefetchRun)return;const t=S.byId.get(id);if(!t||!isCloud(t)||t.offline||urls[id]||cacheIdx[id])continue;
     prefetching=id;
     try{const b=await cloudBlobOnce(t);if(!S.byId.has(id))continue;
@@ -939,12 +939,12 @@ const inApp=/iPhone/.test(navigator.userAgent)&&!/Safari/.test(navigator.userAge
 const native=!!(window.nativeAudio&&window.nativeAudio.start);
 function nativeDesc(t,stream){if(!t||!isCloud(t)||(t.offline&&!stream))return null;const c=coverOf(t),o={id:t.id,title:t.name,artist:lastSeg(t.folder)||'Le mie produzioni',art:c||'',duration:t.duration||0,hash:t.hash||''};
   if(t.src==='gd')o.url=gdUrl(t);else{const a=acctFor(t);if(!a||!a.refresh)return null;o.path=t.dbxId;o.acct=a.refresh}return o}
-/* in Jam comanda la pagina. A schermo bloccato la pagina dorme: con "ripeti tutto" la coda gira da sola, e una stessa copertina viaggia una volta sola */
-let nqKey='';function nativeQueue(){if(!native)return;let ids=jam?[]:upcoming(30);if(!jam&&S.repeat==='all'&&S.ctx.length){ids=[...S.up];for(let i=1;ids.length<30;i++)ids.push(S.ctx[(S.pos+i)%S.ctx.length])}
+/* chi entra in Jam segue l'host, che invece manda avanti la sua coda. A schermo bloccato la pagina dorme: con "ripeti tutto" la coda gira da sola, e una stessa copertina viaggia una volta sola */
+let nqKey='';function nativeQueue(){if(!native)return;const guest=jamIsGuest();let ids=guest?[]:upcoming(30);if(!guest&&S.repeat==='all'&&S.ctx.length){ids=[...S.up];for(let i=1;ids.length<30;i++)ids.push(S.ctx[(S.pos+i)%S.ctx.length])}
   const out=[];let art=null;for(const id of ids){const d=nativeDesc(S.byId.get(id),true);if(!d)break;if(d.art&&d.art===art)d.art='same';else art=d.art;out.push(d)}
-  const one=S.repeat==='one'&&!S.sleepTrack,adv=!jam&&!S.sleepTrack,k=S.curId+'|'+out.map(d=>d.id+d.hash).join()+'|'+one+adv;if(k===nqKey)return;nqKey=k;audio.queue(out,one,adv,artPNG({name:''}))}
-function nativeStart(t,autoplay,at){if(!native||jam||navigator.onLine===false)return false;const d=nativeDesc(t);if(!d)return false;d.art=artPNG(t)||d.art;
-  audio.start(d,at,autoplay,DBX_KEY);audio.playbackRate=S.speed;$('miniS').textContent=lastSeg(t.folder);setMedia(t);nativeQueue();return true}
+  const one=S.repeat==='one'&&!S.sleepTrack&&!guest,adv=!guest&&!S.sleepTrack,k=S.curId+'|'+out.map(d=>d.id+d.hash).join()+'|'+one+adv;if(k===nqKey)return;nqKey=k;audio.queue(out,one,adv,artPNG({name:''}))}
+function nativeStart(t,autoplay,at){if(!native||navigator.onLine===false)return false;const d=nativeDesc(t);if(!d)return false;d.art=artPNG(t)||d.art;
+  audio.start(d,at,autoplay,DBX_KEY);if(!jam)audio.playbackRate=S.speed;$('miniS').textContent=lastSeg(t.folder);setMedia(t);nativeQueue();return true}
 function nativeTrack(id){if(id===S.curId||!S.byId.has(id))return;const i=S.up.indexOf(id);if(i>=0)S.up.splice(0,i+1);else{const k=S.ctx.indexOf(id);if(k>=0)S.pos=k}
   S.curId=id;lastPos=0;S.A=S.B=null;updateAB();$('mini').hidden=false;updateNow();markPlaying();setMedia(S.byId.get(id));savePos();setTimeout(renderUpNext,50)}
 if(native){audio.addEventListener('nativetrack',e=>nativeTrack(e.detail));
@@ -1185,10 +1185,12 @@ $('abBtn').onclick=()=>{if(!S.curId)return;const c=audio.currentTime||0;
   if(S.A==null){S.A=c;toast('Punto A fissato. Tocca di nuovo per fissare B')}else if(S.B==null){if(c<=S.A+.5){toast('B deve essere dopo A');return}S.B=c;audio.currentTime=S.A;toast('Loop attivo. Tocca ancora per toglierlo')}else{S.A=S.B=null;toast('Loop tolto')}updateAB()};
 setInterval(()=>{if(S.sleepEnd&&Date.now()>=S.sleepEnd){S.sleepEnd=0;audio.pause();toast('Timer scaduto: riproduzione in pausa')}if(S.sleepEnd)updTimer();if(!audio.paused&&++posTick%5===0)savePos()},1000);
 
-/* volume: su iPhone nel sito si usa quello del telefono, nell'app lo regola il lettore nativo (solo con il guscio nuovo) */
+/* volume: su iPhone nel sito si usa quello del telefono, nell'app il cursore lo comanda */
 const volOK=native?!!audio.sleep:!(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&(()=>{try{const a=new Audio();a.volume=.5;return Math.abs(a.volume-.5)<.01}catch(e){return false}})();
-if(volOK){$('volRow').hidden=false;const v=$('vol');const sv=+(ls.get('sp-vol')??100);v.value=sv;audio.volume=sv/100;v.style.setProperty('--p',sv+'%');
-  v.oninput=()=>{audio.volume=v.value/100;v.style.setProperty('--p',v.value+'%');ls.set('sp-vol',v.value)}}
+if(volOK){$('volRow').hidden=false;const v=$('vol'),show=x=>{v.value=x;v.style.setProperty('--p',x+'%')};
+  /* nell'app il cursore è il volume vero del telefono: si muove anche con i tasti laterali */
+  if(native){let at=0;show(Math.round(audio.volume*100));v.oninput=()=>{at=Date.now();audio.volume=v.value/100;show(v.value)};audio.addEventListener('volumechange',()=>{if(Date.now()-at>500)show(Math.round(audio.volume*100))})}
+  else{const sv=+(ls.get('sp-vol')??100);show(sv);audio.volume=sv/100;v.oninput=()=>{audio.volume=v.value/100;show(v.value);ls.set('sp-vol',v.value)}}}
 
 /* ripresa da dove eri rimasto */
 let lastPos=0,posTick=0;
@@ -1920,8 +1922,10 @@ const jamTarget=s=>(s.p||0)+(s.pl?Math.max(0,(Date.now()-s.ts)/1000)*(s.r||1):0)
 function jamSetTime(v){jam.ownSeek=Date.now();try{audio.currentTime=v}catch(e){}}
 function jamOnHostTrack(){const t=S.byId.get(S.curId),s=jam&&jam.st;return!!(t&&s&&(jamKey(t)===s.k||normName(t.name)===normName(s.n)))}
 function jamDrift(){if(!jamIsGuest()||!jam.st||jam.missing||Date.now()<(jam.hold||0)||!jamOnHostTrack()||audio.readyState<1)return;
-  const s=jam.st,tg=jamTarget(s),d=audio.duration||0;if(d&&tg>d-.3)return;
-  if(Math.abs((audio.currentTime||0)-tg)>(s.pl?.8:.3))jamSetTime(tg)}
+  /* ogni spostamento ferma il flusso per un momento: mentre si ricarica non se ne chiede un altro, e i piccoli scarti si lasciano stare */
+  const s=jam.st;if(audio.seeking||(s.pl&&audio.readyState<3))return;const tg=jamTarget(s),d=audio.duration||0;if(d&&tg>d-.3)return;
+  const gap=Math.abs((audio.currentTime||0)-tg),now=Date.now();if(gap<(s.pl?(s.solo?2.5:1.2):.3)||(gap<5&&now<(jam.syncAt||0)))return;
+  jam.syncAt=now+8000;jamSetTime(tg)}
 function jamNeedTap(){if(!jam)return;jam.needTap=true;jamUI()}
 async function jamApply(){if(!jamIsGuest()||!jam.st)return;const s=jam.st,j=jam;
   if(Date.now()-s.ts>10*60e3&&!j.live){jamUI();return}  // stato vecchio: aspetto che l'host risponda
@@ -1934,7 +1938,7 @@ async function jamApply(){if(!jamIsGuest()||!jam.st)return;const s=jam.st,j=jam;
   const q=(s.q||[]).map(x=>jamFind(x.k,x.n)).filter(x=>x&&x.id!==t.id).map(x=>x.id);
   S.ctx=[t.id,...q];S.ctxBase=[...S.ctx];S.pos=0;S.up=[];S.ctxLabel='Jam';
   if(audio.playbackRate!==(s.r||1))audio.playbackRate=s.r||1;
-  if(S.curId!==t.id||!audio.src||audio.src===jamSilentUrl){j.applying=true;const p=load(t.id,s.pl);j.applying=false;await p;if(jam!==j)return;j.quiet=Date.now()+1500;
+  if(S.curId!==t.id||!audio.src||audio.src===jamSilentUrl){j.applying=true;j.syncAt=Date.now()+8000;const p=load(t.id,s.pl,jamTarget(s));j.applying=false;await p;if(jam!==j)return;j.quiet=Date.now()+1500;
     if(s.pl&&audio.paused&&audio.readyState>=1)audio.play().catch(()=>jamNeedTap())}
   else{jamDrift();if(s.pl&&audio.paused)audio.play().catch(()=>jamNeedTap());else if(!s.pl&&!audio.paused)audio.pause()}
   renderUpNext();setTimeout(preloadNext,300);jamUI()}
@@ -2125,7 +2129,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261031013633';
+const APP_VER='20261031015233';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
