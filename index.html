@@ -1801,6 +1801,7 @@ async function dbxLoadDates(ac,k,ents){const fs=ents.filter(e=>e['.tag']==='file
     dbxDates[k]={hash:e.content_hash,base:dKey(dirOf(e.path_lower)),map}}catch(x){}
   return dbxDates[k]||null}
 const dbxDateOf=(e,dm)=>{if(dm){const p=dKey(e.path_lower||e.path_display);if(p.startsWith(dm.base+'/')){const v=dm.map.get(p.slice(dm.base.length+1));if(v)return v}}return dbxDate(e)};
+const dbxListed=(e,dm)=>{if(!dm)return false;const p=dKey(e.path_lower||e.path_display);return p.startsWith(dm.base+'/')&&dm.map.has(p.slice(dm.base.length+1))};
 const dbxDate=e=>{const c=Date.parse(e.client_modified)||0,sv=Date.parse(e.server_modified)||0;return c&&sv?Math.min(c,sv):c||sv||0};
 function dbxFolderOf(f,e){const rootSeg=(f.display||f.path).split('/').length;const segs=e.path_display.split('/');const mid=segs.slice(rootSeg,-1);return mid.length?mid.join('/'):f.name}
 async function dbxList(ac,f){let res=await dbxApi(ac,'files/list_folder',{path:f.id||f.path,recursive:true,limit:2000});let ents=res.entries;
@@ -1826,7 +1827,8 @@ async function dbxSync(manual){if(dbxSyncing)return;
           S.tracks.push(t);S.byId.set(id,t);added++;fresh.push(t);await saveTrack(t)}
         else{let ch=false;if(t.hash!==e.content_hash){t.hash=e.content_hash;t.size=e.size;t.file=e.name;delete t.peaks;t.duration=0;t.info={fmt:extOf(e.name).toUpperCase()};delete tempLinks[id];
             await cacheDel(id);if(t.offline){await idb.del('blobs',id);t.offline=false}updated++;fresh.push(t);ch=true}
-          {const ad=dbxDateOf(e,dm);if(ad&&t.added!==ad){t.added=ad;ch=true}}
+          /* un file rinominato non è un brano nuovo: senza una data in elenco tiene quella che aveva */
+          {const ad=dbxDateOf(e,dm);if(ad&&t.added!==ad&&(ch||dbxListed(e,dm))){t.added=ad;ch=true}}
           if(t.path!==e.path_display||t.folder!==folder||t.acct!==ac.id||t.root!==k){if(t.acct!==ac.id)delete tempLinks[id];t.path=e.path_display;t.folder=folder;t.acct=ac.id;t.root=k;ch=true}
           if(ch)await saveTrack(t)}}
       const byF={};imgs.forEach(e=>{const fo=dbxFolderOf(f,e);(byF[fo]=byF[fo]||[]).push(e)});
@@ -2139,7 +2141,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261031021845';
+const APP_VER='20261031023034';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
