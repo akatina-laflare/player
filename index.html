@@ -378,7 +378,6 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radiu
 .mini.compact .t{font-size:14px}
 .mini.compact #miniPrev,.mini.compact #miniNext{width:0;opacity:0;transform:scale(.6);pointer-events:none;margin-inline:-3px}
 .mini.compact #miniPlay{width:38px;height:38px}
-#volSide{position:fixed;left:0;top:50%;width:22px;height:170px;margin-top:-85px;z-index:3;display:flex;justify-content:center;touch-action:none;transition:opacity .25s}#volSide i{display:block;position:relative;width:5px;height:100%;border-radius:3px;overflow:hidden;background:color-mix(in srgb,var(--muted) 35%,transparent);transition:width .15s}#volSide i::after{content:'';position:absolute;left:0;right:0;bottom:0;height:var(--p,100%);background:var(--accent)}#volSide.on i{width:9px}#np.open~#volSide{opacity:0;pointer-events:none}
 @media (prefers-reduced-motion: reduce){.list.anim .row,.grid.anim .card,.pop,.big.swap,.mini.enter,.toast.show{animation:none}.np,.big,.sheet,.scrim{transition:none}.bars i{animation:none;transform:scaleY(.55)}}
 </style>
 
@@ -1063,8 +1062,10 @@ function setMedia(t){try{if(!('mediaSession'in navigator))return;const a=artPNG(
   navigator.mediaSession.metadata=new MediaMetadata({title:t.name,artist:lastSeg(t.folder)||'Le mie produzioni',album:'Studio',artwork:a?[{src:a,sizes:'512x512',type:a.startsWith('data:image/png')?'image/png':'image/jpeg'}]:[]});
   [['play',()=>audio.play()],['pause',()=>audio.pause()],['previoustrack',prev],['nexttrack',()=>next(false)],['seekto',e=>{audio.currentTime=e.seekTime}],['seekbackward',null],['seekforward',null]]
    .forEach(([k,fn])=>{try{navigator.mediaSession.setActionHandler(k,fn)}catch(e){}})}catch(e){}}
-function openNp(){$('np').classList.add('open');$('np').setAttribute('aria-hidden','false');requestAnimationFrame(()=>drawWave())}
-function closeNp(){$('np').classList.remove('open');$('np').setAttribute('aria-hidden','true')}
+/* a schermata grande aperta il volume è il nostro cursore, altrove quello di iOS */
+const sysHud=on=>{if(native&&audio.hud)audio.hud(on)};
+function openNp(){sysHud(false);$('np').classList.add('open');$('np').setAttribute('aria-hidden','false');requestAnimationFrame(()=>drawWave())}
+function closeNp(){sysHud(true);$('np').classList.remove('open');$('np').setAttribute('aria-hidden','true')}
 
 /* trascinamento sulla forma d'onda */
 const wv=$('wave'),zone=$('scrubZone');
@@ -1190,12 +1191,7 @@ setInterval(()=>{if(S.sleepEnd&&Date.now()>=S.sleepEnd){S.sleepEnd=0;audio.pause
 const volOK=native?!!audio.sleep:!(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))&&(()=>{try{const a=new Audio();a.volume=.5;return Math.abs(a.volume-.5)<.01}catch(e){return false}})();
 if(volOK){$('volRow').hidden=false;const v=$('vol'),show=x=>{v.value=x;v.style.setProperty('--p',x+'%')};
   /* nell'app il cursore è il volume vero del telefono: si muove anche con i tasti laterali */
-  if(native){let at=0;const side=document.createElement('div'),setV=x=>{at=Date.now();audio.volume=x/100;show(x);side.style.setProperty('--p',x+'%')};side.id='volSide';side.setAttribute('role','slider');side.setAttribute('aria-label','Volume');side.innerHTML='<i></i>';$('np').after(side);
-    /* con la schermata grande chiusa il volume è una barretta a sinistra: si trascina su e giù */
-    const pick=e=>{const r=side.getBoundingClientRect();setV(Math.round(Math.min(1,Math.max(0,(r.bottom-e.clientY)/r.height))*100))};
-    side.addEventListener('pointerdown',e=>{e.preventDefault();try{side.setPointerCapture(e.pointerId)}catch(x){}side.classList.add('on');pick(e)});side.addEventListener('pointermove',e=>{if(side.classList.contains('on'))pick(e)});
-    ['pointerup','pointercancel'].forEach(n=>side.addEventListener(n,()=>side.classList.remove('on')));
-    const now=()=>{const x=Math.round(audio.volume*100);show(x);side.style.setProperty('--p',x+'%')};now();v.oninput=()=>setV(+v.value);audio.addEventListener('volumechange',()=>{if(Date.now()-at>500)now()})}
+  if(native){let at=0;const now=()=>show(Math.round(audio.volume*100));now();v.oninput=()=>{at=Date.now();audio.volume=v.value/100;show(v.value)};audio.addEventListener('volumechange',()=>{if(Date.now()-at>500)now()})}
   else{const sv=+(ls.get('sp-vol')??100);show(sv);audio.volume=sv/100;v.oninput=()=>{audio.volume=v.value/100;show(v.value);ls.set('sp-vol',v.value)}}}
 
 /* ripresa da dove eri rimasto */
@@ -2135,7 +2131,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261031020434';
+const APP_VER='20261031020737';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
@@ -2229,7 +2225,7 @@ function installBar(){if(!instEvt||$('instBar')||isApp())return;const d=document
   try{const r=JSON.parse(ls.get('sp-resume')||'null'),sp=ls.get('sp-pos')||'',si=sp.lastIndexOf('|');if(r&&sp.slice(0,si)===r.id)r.t=+sp.slice(si+1)||0;if(r&&S.byId.has(r.id)){S.ctx=(r.ctx||[]).filter(id=>S.byId.has(id));if(!S.ctx.includes(r.id))S.ctx=[r.id];S.ctxBase=[...S.ctx];S.pos=S.ctx.indexOf(r.id);S.ctxLabel=r.label||'';
     S.curId=r.id;lastPos=r.t||0;$('mini').hidden=false;updateNow();markPlaying();
     const t=S.byId.get(r.id),d=t.duration||0;progress()}}catch(e){}
-  if(native)audio.sync();
+  if(native){audio.sync();sysHud(true)}
   /* ora Dropbox vince sui doppioni: i brani Dropbox nascosti come doppioni di Drive tornano visibili (una volta sola) */
   if(SET.uiV!==4){SET.uiV=4;if(!SET.coverStyle||SET.coverStyle==='classica')SET.coverStyle='grafite';SET.tech=false;saveSet();applySettings();render();if(S.curId)updateNow()}
   if(SET.dedupeV!==2){SET.dedupeV=2;saveSet();const h=hiddenIds();if(h.some(x=>String(x).startsWith('dbx:')))ls.set('sp-hidden',JSON.stringify(h.filter(x=>!String(x).startsWith('dbx:'))))}
