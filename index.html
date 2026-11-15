@@ -942,14 +942,20 @@ function nativeDesc(t,stream){if(!t||!isCloud(t)||(t.offline&&!stream))return nu
 /* chi entra in Jam segue l'host, che invece manda avanti la sua coda. A schermo bloccato la pagina dorme: con "ripeti tutto" la coda gira da sola, e una stessa copertina viaggia una volta sola */
 let nqKey='';function nativeQueue(){if(!native)return;const guest=jamIsGuest();let ids=guest?[]:upcoming(30);if(!guest&&S.repeat==='all'&&S.ctx.length){ids=[...S.up];for(let i=1;ids.length<30;i++)ids.push(S.ctx[(S.pos+i)%S.ctx.length])}
   const out=[];let art=null;for(const id of ids){const d=nativeDesc(S.byId.get(id),true);if(!d)break;if(d.art&&d.art===art)d.art='same';else art=d.art;out.push(d)}
-  const one=S.repeat==='one'&&!S.sleepTrack&&!guest,adv=!guest&&!S.sleepTrack,k=S.curId+'|'+out.map(d=>d.id+d.hash).join()+'|'+one+adv;if(k===nqKey)return;nqKey=k;audio.queue(out,one,adv,artPNG({name:''}))}
+  const one=S.repeat==='one'&&!S.sleepTrack&&!guest,adv=!guest&&!S.sleepTrack,B=guest?[]:(S.ctxBase||S.ctx),k=S.curId+'|'+out.map(d=>d.id+d.hash).join()+'|'+one+adv+S.shuffle+S.repeat+S.up.length+'|'+B.length+(B[0]||'')+S.ctxLabel;if(k===nqKey)return;nqKey=k;
+  /* tutta la lista in ordine: il lettore dell'app mescola e ripete da solo quando il tasto si tocca dall'auto */
+  const base=[];art=null;for(const id of B){const d=nativeDesc(S.byId.get(id),true);if(!d)continue;if(d.art&&d.art===art)d.art='same';else art=d.art;base.push(d)}
+  audio.queue(out,one,adv,artPNG({name:''}),{shuffle:S.shuffle,repeat:S.repeat,up:Math.min(S.up.length,out.length),base})}
+/* casuale e ripeti cambiati dall'auto: la pagina si allinea */
+function nativeModes(m){if(!m||jamIsGuest())return;if(!!m.shuffle!==S.shuffle){S.shuffle=!!m.shuffle;if(S.ctx.length){const cur=S.curId;S.ctx=S.shuffle?shuffled(S.ctxBase||S.ctx,cur):[...(S.ctxBase||S.ctx)];S.pos=Math.max(0,S.ctx.indexOf(cur))}}
+  if(['off','all','one'].includes(m.repeat))S.repeat=m.repeat;syncModes();renderUpNext()}
 function nativeStart(t,autoplay,at){if(!native||navigator.onLine===false)return false;const d=nativeDesc(t);if(!d)return false;d.art=artPNG(t)||d.art;
   audio.start(d,at,autoplay,DBX_KEY);if(!jam)audio.playbackRate=S.speed;$('miniS').textContent=lastSeg(t.folder);setMedia(t);nativeQueue();return true}
 function nativeTrack(id){if(id===S.curId||!S.byId.has(id))return;const i=S.up.indexOf(id);if(i>=0)S.up.splice(0,i+1);else{const k=S.ctx.indexOf(id);if(k>=0)S.pos=k}
   S.curId=id;lastPos=0;S.A=S.B=null;updateAB();$('mini').hidden=false;updateNow();markPlaying();setMedia(S.byId.get(id));savePos();setTimeout(renderUpNext,50)}
-if(native){audio.addEventListener('nativetrack',e=>nativeTrack(e.detail));
+if(native){audio.addEventListener('nativetrack',e=>nativeTrack(e.detail));audio.addEventListener('nativemodes',e=>nativeModes(e.detail));
   audio.addEventListener('nativestate',e=>{const v=e.detail;(v.played||[]).forEach(id=>{const t=S.byId.get(id);if(t){if(t.own==null)t.own=t.plays||0;t.own++;t.plays=(t.plays||0)+1;saveTrack(t);if(isCloud(t))syncDirty()}});
-    if(v.id)nativeTrack(v.id);else if(v.saved&&S.byId.has(v.saved.id)){if(v.saved.id!==S.curId)nativeTrack(v.saved.id);lastPos=v.saved.t||0;progress()}syncPlay();renderUpNext()});
+    if(v.id)nativeTrack(v.id);else if(v.saved&&S.byId.has(v.saved.id)){if(v.saved.id!==S.curId)nativeTrack(v.saved.id);lastPos=v.saved.t||0;progress()}if(v.modes)nativeModes(v.modes);syncPlay();renderUpNext()});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)audio.sync()})}
 function keepOff(){clearTimeout(keepT);if(!keepAudio.paused)keepAudio.pause()}
 function keepOn(){if(!inApp||native)return;try{silentUrl();if(keepAudio.src!==jamSilentUrl)keepAudio.src=jamSilentUrl;const q=keepAudio.play();if(q&&q.catch)q.catch(()=>{});clearTimeout(keepT);keepT=setTimeout(keepOff,30000)}catch(e){}}
@@ -2141,7 +2147,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261031023034';
+const APP_VER='20261115232005';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
