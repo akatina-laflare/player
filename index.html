@@ -561,6 +561,8 @@ const S={tracks:[],byId:new Map(),covers:{},tab:'songs',folder:null,query:'',
   ctx:[],pos:-1,up:[],curId:null,ctxLabel:'',shuffle:false,repeat:'off',speed:1,sleepEnd:0,sleepTrack:false,A:null,B:null,visible:[]};
 try{const m=JSON.parse(ls.get('sp-modes')||'{}');S.shuffle=!!m.shuffle;S.repeat=['off','all','one'].includes(m.repeat)?m.repeat:'off';S.speed=+m.speed||1}catch(e){}
 const audio=window.nativeAudio||new Audio();audio.preload='auto';
+// iPhone: dichiara che è musica, così continua a suonare quando si apre un'altra app
+try{if(!window.nativeAudio&&navigator.audioSession)navigator.audioSession.type='playback'}catch(e){}
 try{audio.preservesPitch=true;audio.mozPreservesPitch=true;audio.webkitPreservesPitch=true}catch(e){}
 const urls={};
 
@@ -2147,7 +2149,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)savePos();e
 window.addEventListener('pagehide',savePos);
 
 /* ================= aggiornamenti automatici ================= */
-const APP_VER='20261115232005';
+const APP_VER='20261125093854';
 let updChecking=false,updAt=0;
 async function checkUpdate(manual){if(updChecking||location.protocol!=='https:'||!/github\.io$/.test(location.hostname))return;if(!manual&&Date.now()-updAt<180e3)return;updAt=Date.now();updChecking=true;
   try{const r=await fetch(REDIR+'?check='+Date.now(),{cache:'no-store'});const tx=await r.text();const m=tx.match(/const APP_VER='(\d+)'/);
